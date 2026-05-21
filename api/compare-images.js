@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { queryImage, queryMediaType, products } = req.body;
+  const { queryImage, queryMediaType, products, minScore = 70 } = req.body;
   // products: [{imageUrl, productUrl, name, vendor}]
 
   if (!queryImage || !products?.length) return res.status(400).json({ error: "missing data" });
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
           "",
           "반드시 JSON만 반환:",
           `{"matches":[{"index":1,"vendor":"업체명","productUrl":"url","reason":"형태 유사 근거","score":95}]}`,
-          "유사도 점수 70점 이상만 포함. 최대 5개."
+          `유사도 점수 ${minScore}점 이상만 포함. 최대 5개.`
         ].join("\n")
       },
       // 검색 이미지
