@@ -330,7 +330,7 @@ export default function App() {
         // Step 3: 거래처별 시각 비교 (병렬)
         setSearchStatus("이미지 유사도 비교 중...");
         const qImg = images[0];
-        const minScore = matchType === "exact" ? 90 : 60;
+        const minScore = matchType === "exact" ? 100 : 70;
         const compared = await Promise.all(
           scraped.map(async (vr) => {
             if (!vr.products.length) return { ...vr, matches:[] };
@@ -565,8 +565,8 @@ export default function App() {
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
               <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>유형</span>
-              <Pill active={matchType === "exact"}   onClick={() => setMatchType("exact")}>일치 <span style={{ opacity:0.7, fontSize:"10px" }}>90%↑</span></Pill>
-              <Pill active={matchType === "similar"} onClick={() => setMatchType("similar")}>비슷 <span style={{ opacity:0.7, fontSize:"10px" }}>60%↑</span></Pill>
+              <Pill active={matchType === "exact"}   onClick={() => setMatchType("exact")}>일치 <span style={{ opacity:0.7, fontSize:"10px" }}>100%</span></Pill>
+              <Pill active={matchType === "similar"} onClick={() => setMatchType("similar")}>비슷 <span style={{ opacity:0.7, fontSize:"10px" }}>70%↑</span></Pill>
             </div>
             <button onClick={handleSearch} disabled={isSearching} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:"8px", padding:"10px 28px", background: isSearching ? MID : DARK, color:"#fff", border:"none", borderRadius:"8px", fontSize:"14px", fontWeight:700, cursor: isSearching ? "not-allowed" : "pointer" }}>
               <IcSearch size={15} c="#fff" /> {isSearching ? "검색 중..." : "검색"}

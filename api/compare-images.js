@@ -28,24 +28,28 @@ export default async function handler(req, res) {
       {
         type: "text",
         text: [
-          "아래 [검색 이미지]와 형태·실루엣·구조가 가장 유사한 제품을 [제품 목록]에서 찾아주세요.",
+          "당신은 가구 이미지 비교 전문가입니다.",
+          "첫 번째 이미지([검색 이미지])와 나머지 제품 이미지들을 비교하여 유사도를 판단하세요.",
           "",
-          "판단 기준 (중요도 순):",
-          "1. 전체 실루엣 및 형태 (가장 중요)",
-          "2. 다리 구조 (4발/U자/X자/캔틸레버 등)",
-          "3. 등받이 구조 (유무·높이·형태)",
-          "4. 좌판 형태",
-          "5. 색상·재질은 무시 — 형태가 같으면 색상 달라도 포함",
+          "【유사도 점수 기준 — 반드시 엄격하게 적용】",
+          "100점: 완전 동일 제품. 같은 모델, 같은 디자인. 색상만 다를 수 있음. 형태·실루엣·다리구조·등받이 모두 100% 일치.",
+          "90~99점: 거의 동일. 미세한 차이(각도, 배색)만 있고 같은 라인 제품으로 보임.",
+          "70~89점: 매우 유사. 전체 실루엣과 다리구조, 등받이 형태가 같지만 세부 디자인 차이 있음.",
+          "50~69점: 유사. 같은 카테고리에서 비슷한 스타일이지만 구조적 차이 존재.",
+          "0~49점: 유사하지 않음. 이 경우 결과에 포함하지 말 것.",
           "",
-          `[제품 목록] 총 ${valid.length}개. 각 이미지 순서: 1번~${valid.length}번`,
+          "【중요】 확신이 없으면 점수를 낮게 주세요. 억지로 높은 점수를 주지 마세요.",
+          "전혀 다른 형태의 제품에 높은 점수를 주는 것은 엄격히 금지.",
+          "",
+          `[제품 목록] 총 ${valid.length}개 (1번~${valid.length}번 순서)`,
           "",
           "반드시 JSON만 반환:",
-          `{"matches":[{"index":1,"vendor":"업체명","productUrl":"url","reason":"형태 유사 근거","score":95}]}`,
-          `유사도 점수 ${minScore}점 이상만 포함. 최대 5개.`
+          `{"matches":[{"index":1,"vendor":"업체명","productUrl":"url","reason":"구체적 유사 근거","score":100}]}`,
+          `유사도 점수 ${minScore}점 이상만 포함. 최대 5개. 해당 점수 이상 없으면 matches를 빈 배열로 반환.`
         ].join("\n")
       },
       // 검색 이미지
-      { type: "image_url", image_url: { url: `data:${queryMediaType};base64,${queryImage}`, detail: "low" } },
+      { type: "image_url", image_url: { url: `data:${queryMediaType};base64,${queryImage}`, detail: "high" } },
     ];
 
     // 제품 이미지들
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         max_tokens: 800,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content }],
