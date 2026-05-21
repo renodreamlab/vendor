@@ -139,7 +139,7 @@ async function describeImage(imageUrl) {
         model:"gpt-4o-mini", max_tokens:150,
         messages:[{ role:"user", content:[
           { type:"image_url", image_url:{ url:`data:${ct};base64,${b64}`, detail:"low" } },
-          { type:"text", text:"이 가구: 1)종류 2)실루엣/형태 3)다리구조 4)등받이 5)독특한특징. 색상재질제외. 80자이내." }
+          { type:"text", text:"이 가구의 형태를 설명. 반드시 포함: 가구종류, 등받이형태(모양/패턴/구멍유무), 다리구조(개수/형태), 좌판형태, 가장독특한시각적특징. 다른 의자와 구별되는 점 강조. 색상재질 절대제외. 키워드 나열식으로 60자이내." }
         ]}],
       }),
     });
