@@ -224,29 +224,59 @@ export default function App() {
     const searchList  = targetVendors.map(v => v.name + ": " + (v.search ?? v.url)).join("\n");
     const onlineExtra = searchRange === "online" ? "\n쿠팡, 네이버쇼핑, G마켓 등 일반 온라인도 포함." : "";
     const catLine     = selCats.length > 0 ? "\n- 카테고리 필터: " + selCats.join(", ") : "";
-    const kwLine      = searchText.trim() ? "\n- 추가 키워드: " + searchText.trim() : "";
+    const kwLine      = searchText.trim() ? "\n- 참고 키워드: " + searchText.trim() : "";
     const jsonNote    = "반드시 JSON만 반환. 마크다운 코드블록 없이 순수 JSON만 출력.";
-    const urlRule     = "url 필드는 반드시 아래 [검색URL 목록]의 {q}를 search_keyword로 치환한 값 사용. 임의 제품 상세 URL 생성 금지.";
-    const kwRule      = "search_keyword는 한국 가구 쇼핑몰 검색엔진에서 실제로 결과가 나올 수 있는 짧은 단어로 작성. 예: '의자', '식탁', '철제 선반', '소파'. 긴 설명형 문장 금지.";
-    const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"설명"}';
-    const aSch = '{"type":"유형","style":"스타일","material":"재질","color":"색상","features":["특징"]}';
+    const urlRule     = "url 필드: 아래 [검색URL]의 {q}를 search_keyword로 치환. 임의 제품 상세 URL 생성 금지.";
+    const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"형태 유사 근거"}';
+    const aSch = '{"type":"가구유형","silhouette":"전체실루엣","leg_type":"다리구조","back_type":"등받이구조","seat_type":"좌판구조","distinctive_features":["특징1","특징2"]}';
     if (isImg) {
-      return ["당신은 가구 이미지 검색 전문가입니다. 첨부된 가구 이미지를 분석하고 아래 거래처에서 해당 제품을 찾아주세요.", "",
-        "[검색 조건]", "- 유형: " + matchDesc, "- 범위: " + rangeDesc + onlineExtra, catLine, kwLine, "",
+      const multiNote = images.length > 1
+        ? `\n[중요] 첨부된 ${images.length}장의 이미지는 동일 제품의 다른 각도 사진입니다. 모든 이미지를 종합하여 제품의 형태를 정확히 파악하세요.`
+        : "";
+      return [
+        "당신은 가구 형태 분석 전문가입니다. 첨부 이미지의 가구와 외형·실루엣이 동일하거나 매우 유사한 제품을 아래 거래처에서 찾아주세요.",
+        multiNote,
+        "",
+        "[분석 우선순위 - 중요도 순]",
+        "1. 전체 실루엣과 형태 (가장 중요)",
+        "2. 다리 구조 (4발/U자/X자/캔틸레버/받침대 등)",
+        "3. 등받이 구조 (유무/높이/형태)",
+        "4. 좌판 형태 (사각/원형/곡선 등)",
+        "5. 재질·색상은 부차적 요소 (동일 형태라면 색상 달라도 포함)",
+        "",
+        "[검색 조건]",
+        "- 유형: " + matchDesc,
+        "- 범위: " + rangeDesc + onlineExtra,
+        catLine, kwLine,
+        "",
+        "[search_keyword 규칙]",
+        "- 형태/구조 중심의 짧은 한국어 단어 (2~4글자)",
+        "- 색상·재질 절대 포함 금지 (레드X, 플라스틱X, 나무X)",
+        "- 예시: '의자', '스툴', '바체어', '소파', '1인소파', '등받이의자', '암체어'",
+        "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 search_keyword로 치환]", searchList, "",
-        urlRule, kwRule, "", jsonNote, "",
-        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"의자","results":[' + rSch + ']}', "",
-        "신뢰도 높은 순 최대 10건."
+        "[검색URL - {q}를 search_keyword로 치환]", searchList, "",
+        urlRule, "", jsonNote, "",
+        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"의자","results":[' + rSch + ']}',
+        "",
+        "신뢰도 높은 순 최대 10건. note 필드에 형태 유사 근거 간략 기재."
       ].join("\n");
     } else {
       const q = [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
-      return ['당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.', "",
-        "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra, "",
+      return [
+        '당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.',
+        "",
+        "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra,
+        "",
+        "[search_keyword 규칙]",
+        "- 한국 가구 도매몰에서 실제 검색되는 짧은 단어 (2~4글자)",
+        "- 색상·재질 포함 금지. 예: '의자', '소파', '선반', '책상'",
+        "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 search_keyword로 치환]", searchList, "",
-        urlRule, kwRule, "", jsonNote, "",
-        '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}', "",
+        "[검색URL - {q}를 search_keyword로 치환]", searchList, "",
+        urlRule, "", jsonNote, "",
+        '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}',
+        "",
         "최대 12건."
       ].join("\n");
     }
@@ -474,15 +504,16 @@ export default function App() {
             {/* analysis banner */}
             {results.furniture_analysis && (
               <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"10px", padding:"14px 18px", marginBottom:"16px" }}>
-                <div style={{ ...labelSt, color:"#166534", marginBottom:"8px" }}>이미지 분석 결과</div>
+                <div style={{ ...labelSt, color:"#166534", marginBottom:"8px" }}>형태 분석 결과 {images.length > 1 ? `(${images.length}장 종합)` : ""}</div>
                 <div style={{ display:"flex", gap:"18px", flexWrap:"wrap", fontSize:"13px", color:"#166534" }}>
-                  {results.furniture_analysis.type     && <span><b>유형:</b> {results.furniture_analysis.type}</span>}
-                  {results.furniture_analysis.style    && <span><b>스타일:</b> {results.furniture_analysis.style}</span>}
-                  {results.furniture_analysis.material && <span><b>재질:</b> {results.furniture_analysis.material}</span>}
-                  {results.furniture_analysis.color    && <span><b>색상:</b> {results.furniture_analysis.color}</span>}
+                  {results.furniture_analysis.type          && <span><b>유형:</b> {results.furniture_analysis.type}</span>}
+                  {results.furniture_analysis.silhouette    && <span><b>실루엣:</b> {results.furniture_analysis.silhouette}</span>}
+                  {results.furniture_analysis.leg_type      && <span><b>다리:</b> {results.furniture_analysis.leg_type}</span>}
+                  {results.furniture_analysis.back_type     && <span><b>등받이:</b> {results.furniture_analysis.back_type}</span>}
+                  {results.furniture_analysis.seat_type     && <span><b>좌판:</b> {results.furniture_analysis.seat_type}</span>}
                 </div>
-                {results.furniture_analysis.features && results.furniture_analysis.features.length > 0 && (
-                  <div style={{ fontSize:"12px", color:"#166534", marginTop:"6px" }}><b>특징:</b> {results.furniture_analysis.features.join(" · ")}</div>
+                {results.furniture_analysis.distinctive_features && results.furniture_analysis.distinctive_features.length > 0 && (
+                  <div style={{ fontSize:"12px", color:"#166534", marginTop:"6px" }}><b>형태 특징:</b> {results.furniture_analysis.distinctive_features.join(" · ")}</div>
                 )}
                 {results.search_keyword && <div style={{ fontSize:"12px", color:"#166534", marginTop:"4px" }}><b>검색 키워드:</b> {results.search_keyword}</div>}
               </div>
