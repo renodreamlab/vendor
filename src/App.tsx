@@ -412,41 +412,21 @@ export default function App() {
 
   // ── Result renderers ──────────────────────────────────────
   // ── 인덱싱 섹션 컴포넌트 ─────────────────────────────────
-  const IndexSection = () => {
-    const [indexing, setIndexing] = React.useState(false);
-    const [indexLog, setIndexLog] = React.useState("");
-    const runIndex = async () => {
-      setIndexing(true); setIndexLog("인덱싱 시작...");
-      try {
-        const r = await fetch("/api/index-products", {
-          method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ secret:"vendor2025" }),
-        });
-        const d = await r.json();
-        setIndexLog(`완료: ${d.indexed}개 저장 (총 ${d.total}개 처리)\n${(d.log||[]).slice(-5).join("\n")}`);
-      } catch(e) {
-        setIndexLog("오류: " + e.message);
-      } finally { setIndexing(false); }
-    };
-    return (
-      <div style={{ padding:"14px 24px", borderBottom:"1px solid #f1f5f9", background:"#fafafa" }}>
-        <div style={{ ...labelSt, marginBottom:"8px" }}>제품 인덱싱 (이미지 검색용 DB 구축)</div>
-        <div style={{ fontSize:"12px", color:MID, marginBottom:"8px" }}>
-          거래처 전체 제품을 크롤링해서 AI 설명 + 임베딩을 Supabase에 저장합니다.<br/>
-          처음 1회 또는 거래처 업데이트 시 실행하세요. (소요 시간: 30~60분)
-        </div>
-        <button onClick={runIndex} disabled={indexing}
-          style={{ padding:"8px 18px", background: indexing ? MID : "#7c3aed", color:"#fff", border:"none", borderRadius:"6px", fontSize:"13px", fontWeight:700, cursor: indexing ? "not-allowed" : "pointer" }}>
-          {indexing ? "인덱싱 중... (백그라운드 실행)" : "▶ 인덱싱 실행"}
-        </button>
-        {indexLog && (
-          <pre style={{ marginTop:"8px", padding:"8px", background:"#f1f5f9", borderRadius:"6px", fontSize:"11px", color:"#374151", whiteSpace:"pre-wrap", maxHeight:"120px", overflow:"auto" }}>
-            {indexLog}
-          </pre>
-        )}
+  const IndexSection = () => (
+    <div style={{ padding:"14px 24px", borderBottom:"1px solid #f1f5f9", background:"#fafafa" }}>
+      <div style={{ ...labelSt, marginBottom:"8px" }}>제품 인덱싱 (이미지 검색용 DB 구축)</div>
+      <div style={{ fontSize:"12px", color:MID, marginBottom:"10px", lineHeight:1.6 }}>
+        거래처 전체 제품을 크롤링해서 Supabase에 저장합니다.<br/>
+        처음 1회 또는 거래처 업데이트 시 실행하세요. (소요 30~60분)
       </div>
-    );
-  };
+      <div style={{ background:"#1e293b", borderRadius:"8px", padding:"12px 14px", fontFamily:"monospace", fontSize:"12px", color:"#94a3b8" }}>
+        <div style={{ color:"#64748b", marginBottom:"4px" }}># 터미널에서 실행</div>
+        <div style={{ color:"#e2e8f0" }}>node scripts/index.mjs</div>
+        <div style={{ color:"#64748b", marginTop:"6px", marginBottom:"4px" }}># 특정 거래처만</div>
+        <div style={{ color:"#e2e8f0" }}>node scripts/index.mjs 켄덴 벨로스가구</div>
+      </div>
+    </div>
+  );
 
   const Badge = ({ confidence }) => {
     const hi = confidence >= 80;
