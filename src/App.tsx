@@ -271,9 +271,10 @@ export default function App() {
       }
       const res  = await fetch("/api/claude", {
         method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ model:"gpt-4o", max_tokens:1000, messages }),
+        body: JSON.stringify({ model:"gpt-4o", max_tokens:4000, messages }),
       });
       const data  = await res.json();
+      if (data.error) throw new Error(data.error.message ?? "API error");
       const raw   = data.choices?.[0]?.message?.content ?? "";
       const clean = raw.replace(/```json/g,"").replace(/```/g,"").trim();
       const parsed = JSON.parse(clean);
@@ -281,15 +282,19 @@ export default function App() {
       if (parsed.results) {
         parsed.results = parsed.results.map(r => {
           const vendor = vendors.find(v => v.name === r.vendor);
-          if (vendor?.search) {
-            r.url = vendor.search.replace("{q}", encodeURIComponent(keyword));
+          if (vendor) {
+            // 거래처 검색 URL 사용, 없으면 구글 사이트 검색으로 폴백
+            const domain = new URL(vendor.url).hostname;
+            r.url = vendor.search
+              ? vendor.search.replace("{q}", encodeURIComponent(keyword))
+              : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
           }
           return r;
         });
       }
       setResults(parsed);
     } catch(e) {
-      setError("검색 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setError("검색 중 오류가 발생했습니다: " + (e?.message ?? "다시 시도해주세요."));
     } finally {
       setIsSearching(false);
     }
