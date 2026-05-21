@@ -22,14 +22,7 @@ async function describeQueryImage(base64, mediaType, multipleImages) {
       messages: [{ role:"user", content:[
         { type:"image_url", image_url:{ url:`data:${mediaType};base64,${base64}`, detail:"high" } },
         { type:"text", text:`${multiNote}
-이 가구를 아래 항목별로 한국어로 상세히 설명하세요:
-1. 가구 종류 (의자/소파/테이블 등)
-2. 전체 실루엣과 형태
-3. 다리 구조 (4발/U자/X자/캔틸레버/받침대 등)
-4. 등받이 구조 (유무, 높이, 형태)
-5. 좌판/상판 형태
-6. 독특한 디자인 특징 (웨이브, 천공, 적층 등)
-색상과 재질은 제외. 100자 이내.` }
+이 가구: 1)종류 2)실루엣/형태 3)다리구조 4)등받이 5)독특한특징. 색상재질제외. 80자이내.` }
       ]}],
     }),
   });
@@ -65,8 +58,8 @@ export default async function handler(req, res) {
     const embedding = await embed(description);
     if (!embedding) return res.status(200).json({ results: [], description });
 
-    // 3. 유사도 기준
-    const threshold = matchType === "exact" ? 0.75 : 0.55;
+    // 3. 유사도 기준 (text embedding 특성상 0.35~0.55 수준이 실제 유사)
+    const threshold = matchType === "exact" ? 0.45 : 0.35;
 
     // 4. Supabase 벡터 검색
     const { data, error } = await supabase.rpc("search_products", {

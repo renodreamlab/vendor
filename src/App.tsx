@@ -648,7 +648,7 @@ export default function App() {
                           <div style={{ fontSize:"11px", fontWeight:700, color:MID, marginBottom:"3px" }}>{m.vendor}</div>
                           <div style={{ fontSize:"12px", color:"#475569", lineHeight:1.4, marginBottom:"6px" }}>{m.description}</div>
                           <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                            <div style={{ background: m.score>=80?"#dcfce7":"#fef9c3", color: m.score>=80?"#166534":"#92400e",
+                            <div style={{ background: m.score>=50?"#dcfce7":"#fef9c3", color: m.score>=50?"#166534":"#92400e",
                               padding:"2px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700 }}>
                               유사도 {m.score}%
                             </div>
