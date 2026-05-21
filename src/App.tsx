@@ -1,0 +1,553 @@
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+
+const DEFAULT_VENDORS = [
+  { id:1,  name:"가구로드",    url:"https://m.gaguroad.com/",           search:"https://m.gaguroad.com/search?keyword={q}" },
+  { id:2,  name:"가든프렌즈",  url:"https://www.b2bgarden.co.kr/",      search:"https://www.b2bgarden.co.kr/product/search.html?keyword={q}" },
+  { id:3,  name:"금하무역",    url:"https://goldriver78.cafe24.com/",   search:"https://goldriver78.cafe24.com/product/search.html?keyword={q}" },
+  { id:4,  name:"금풍무역",    url:"https://gppo5789.co.kr/",           search:"https://gppo5789.co.kr/product/search.html?keyword={q}" },
+  { id:5,  name:"다나무",      url:"https://www.danamoo.co.kr/",        search:"https://www.danamoo.co.kr/product/search.html?keyword={q}" },
+  { id:6,  name:"다원체어스",  url:"https://dawonchair.com/",           search:"https://dawonchair.com/product/search.html?keyword={q}" },
+  { id:7,  name:"대승컴퍼니",  url:"https://www.idaeseung.kr/",         search:"https://www.idaeseung.kr/product/search.html?keyword={q}" },
+  { id:8,  name:"루센가구",    url:"https://lusen.co.kr/",              search:"https://lusen.co.kr/product/search.html?keyword={q}" },
+  { id:9,  name:"모빌리가구",  url:"https://mobily.co.kr/",             search:"https://mobily.co.kr/product/search.html?keyword={q}" },
+  { id:10, name:"바오밥가구",  url:"https://www.designgagu.co.kr/",     search:"https://www.designgagu.co.kr/product/search.html?keyword={q}" },
+  { id:11, name:"벨로스가구",  url:"https://bellos.kr/",                search:"https://bellos.kr/product/search.html?keyword={q}" },
+  { id:12, name:"빅퍼스",      url:"https://vicfus.com/",               search:"https://vicfus.com/product/search.html?keyword={q}" },
+  { id:13, name:"상원상사",    url:"https://swgagu.co.kr/",             search:"https://swgagu.co.kr/product/search.html?keyword={q}" },
+  { id:14, name:"세광가구",    url:"https://gagucafe114.com/",          search:"https://gagucafe114.com/product/search.html?keyword={q}" },
+  { id:15, name:"솔로몬가구",  url:"https://solomongagu.com/",          search:"https://solomongagu.com/product/search.html?keyword={q}" },
+  { id:16, name:"아이엠가구",  url:"https://im9888.com/",               search:"https://im9888.com/product/search.html?keyword={q}" },
+  { id:17, name:"아트랜드",    url:"https://k490515.cafe24.com/",       search:"https://k490515.cafe24.com/product/search.html?keyword={q}" },
+  { id:18, name:"양지에이치앤",url:"https://yangjihn.com/",             search:"https://yangjihn.com/product/search.html?keyword={q}" },
+  { id:19, name:"에프엠가구",  url:"https://fmgagu.com/",               search:"https://fmgagu.com/product/search.html?keyword={q}" },
+  { id:20, name:"우주퍼니처",  url:"https://www.woojoof.co.kr/",        search:"https://www.woojoof.co.kr/product/search.html?keyword={q}" },
+  { id:21, name:"은창플러스",  url:"https://www.ecgagu.co.kr/",         search:"https://www.ecgagu.co.kr/product/search.html?keyword={q}" },
+  { id:22, name:"이나무로",    url:"https://www.enamuro.kr/",           search:"https://www.enamuro.kr/product/search.html?keyword={q}" },
+  { id:23, name:"이앤피가구",  url:"https://enpgagu.com/",              search:"https://enpgagu.com/product/search.html?keyword={q}" },
+  { id:24, name:"인컨셉가구",  url:"https://www.inconcept.co.kr/",      search:"https://www.inconcept.co.kr/product/search.html?keyword={q}" },
+  { id:25, name:"캠버리가구",  url:"https://www.cambirry.co.kr/",       search:"https://www.cambirry.co.kr/product/search.html?keyword={q}" },
+  { id:26, name:"켄덴",        url:"https://kenden.kr/",                search:"https://kenden.kr/product/search.html?keyword={q}" },
+  { id:27, name:"케이브홈",    url:"https://kavehome.kr/ko",            search:"https://kavehome.kr/ko/search?q={q}" },
+  { id:28, name:"파레트인",    url:"https://palletin.com/",             search:"https://palletin.com/product/search.html?keyword={q}" },
+  { id:29, name:"포인플랜",    url:"https://foinplan.com/",             search:"https://foinplan.com/product/search.html?keyword={q}" },
+  { id:30, name:"하디가구",    url:"https://www.hadi.co.kr/",           search:"https://www.hadi.co.kr/product/search.html?keyword={q}" },
+  { id:31, name:"한국티에이",  url:"https://ikta.co.kr/",               search:"https://ikta.co.kr/product/search.html?keyword={q}" },
+];
+
+const CATS = ["의자","테이블","소파","침대","수납장","책상","선반","조명","철재가구","목재가구","야외가구"];
+
+// ── Placeholder thumbnail color per vendor ───────────────
+const SWATCH = ["#f1f5f9","#fce7f3","#dbeafe","#dcfce7","#fef9c3","#ede9fe","#ffedd5","#fdf2f8","#ecfeff","#fff7ed"];
+const SWATCH_T = ["#475569","#9d174d","#1e40af","#166534","#92400e","#6d28d9","#c2410c","#86198f","#155e75","#c2410c"];
+function thumbColors(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % SWATCH.length;
+  return { bg: SWATCH[h], fg: SWATCH_T[h] };
+}
+
+// ── SVG icons ────────────────────────────────────────────
+const IS = { display:"block", flexShrink:0 };
+function IcSearch({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+function IcUpload({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+    </svg>
+  );
+}
+function IcX({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+function IcSettings({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+      <circle cx="8" cy="6" r="2" fill={c} stroke="none" />
+      <circle cx="16" cy="12" r="2" fill={c} stroke="none" />
+      <circle cx="12" cy="18" r="2" fill={c} stroke="none" />
+    </svg>
+  );
+}
+function IcGlobe({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+function IcLink({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+function IcTrash({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+function IcPlus({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+function IcGrid({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+function IcList({ size=16, c="currentColor", w=2 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" style={IS}>
+      <line x1="9" y1="6"  x2="20" y2="6"  /><line x1="9" y1="12" x2="20" y2="12" /><line x1="9" y1="18" x2="20" y2="18" />
+      <circle cx="4" cy="6"  r="1.5" fill={c} stroke="none" />
+      <circle cx="4" cy="12" r="1.5" fill={c} stroke="none" />
+      <circle cx="4" cy="18" r="1.5" fill={c} stroke="none" />
+    </svg>
+  );
+}
+
+// ── Design tokens ─────────────────────────────────────────
+const DARK = "#0f172a";
+const MID  = "#64748b";
+const BDR  = "#e2e8f0";
+const cardSt  = { background:"#fff", borderRadius:"12px", padding:"20px", marginBottom:"16px", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", border:"1px solid #e8eaed" };
+const labelSt = { fontSize:"11px", fontWeight:700, color:MID, letterSpacing:"1.5px", textTransform:"uppercase" };
+
+function Pill({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} style={{ padding:"6px 14px", borderRadius:"20px", fontSize:"12.5px", cursor:"pointer", transition:"all 0.15s", background:active ? DARK : "#fff", color:active ? "#fff" : "#374151", border:active ? "1px solid "+DARK : "1px solid "+BDR, fontWeight:active ? 700 : 400, display:"inline-flex", alignItems:"center", gap:"5px" }}>
+      {children}
+    </button>
+  );
+}
+
+// ── Thumbnail placeholder ─────────────────────────────────
+function Thumb({ vendor, size=140, radius=8 }) {
+  const { bg, fg } = thumbColors(vendor);
+  return (
+    <div style={{ width:"100%", height:size, background:bg, borderRadius:radius+"px "+radius+"px 0 0", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", flexShrink:0 }}>
+      <div style={{ width:40, height:40, borderRadius:"50%", background:fg+"22", border:"2px solid "+fg+"33", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <span style={{ fontSize:"18px", fontWeight:800, color:fg }}>{vendor.charAt(0)}</span>
+      </div>
+      <span style={{ fontSize:"11px", color:fg, fontWeight:600, letterSpacing:"0.5px" }}>{vendor}</span>
+    </div>
+  );
+}
+
+function ThumbSquare({ vendor, size=72 }) {
+  const { bg, fg } = thumbColors(vendor);
+  return (
+    <div style={{ width:size, height:size, background:bg, borderRadius:"8px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"4px", flexShrink:0 }}>
+      <span style={{ fontSize:"20px", fontWeight:800, color:fg }}>{vendor.charAt(0)}</span>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────
+export default function App() {
+  const [vendors, setVendors]         = useState(DEFAULT_VENDORS);
+  const [selVendors, setSelVendors]   = useState([]);
+  const [selCats, setSelCats]         = useState([]);
+  const [images, setImages]           = useState([]);
+  const [searchText, setSearchText]   = useState("");
+  const [searchRange, setSearchRange] = useState("vendors");
+  const [matchType, setMatchType]     = useState("exact");
+  const [results, setResults]         = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [viewMode, setViewMode]       = useState("gallery"); // "gallery" | "list"
+  const [showManager, setShowManager] = useState(false);
+  const [newName, setNewName]         = useState("");
+  const [newUrl, setNewUrl]           = useState("");
+  const [error, setError]             = useState("");
+  const [dropActive, setDropActive]   = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    const fn = (e) => {
+      const items = Array.from(e.clipboardData ? e.clipboardData.items : []);
+      const files = items.filter(i => i.type.startsWith("image/")).map(i => i.getAsFile()).filter(Boolean);
+      if (files.length) addImages(files);
+    };
+    window.addEventListener("paste", fn);
+    return () => window.removeEventListener("paste", fn);
+  }, []);
+
+  const addImages = (files) => {
+    files.forEach(file => {
+      const r = new FileReader();
+      r.onload = (e) => {
+        const b64 = e.target.result.split(",")[1];
+        setImages(prev => [...prev, { id:Date.now()+Math.random(), preview:e.target.result, base64:b64, mediaType:file.type }]);
+      };
+      r.readAsDataURL(file);
+    });
+  };
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); setDropActive(false);
+    addImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")));
+  }, []);
+
+  const toggleVendor = (name) => setSelVendors(p => p.includes(name) ? p.filter(v => v !== name) : [...p, name]);
+  const toggleCat    = (cat)  => setSelCats(p => p.includes(cat) ? p.filter(c => c !== cat) : [...p, cat]);
+
+  const buildSearchUrl = (vendor, keyword) =>
+    vendor.search ? vendor.search.replace("{q}", encodeURIComponent(keyword)) : vendor.url;
+
+  const buildPrompt = (isImg, targetVendors, matchDesc, rangeDesc) => {
+    const vendorList  = targetVendors.map(v => v.name + ": " + v.url).join("\n");
+    const searchList  = targetVendors.map(v => v.name + ": " + (v.search ?? v.url)).join("\n");
+    const onlineExtra = searchRange === "online" ? "\n쿠팡, 네이버쇼핑, G마켓 등 일반 온라인도 포함." : "";
+    const catLine     = selCats.length > 0 ? "\n- 카테고리 필터: " + selCats.join(", ") : "";
+    const kwLine      = searchText.trim() ? "\n- 추가 키워드: " + searchText.trim() : "";
+    const jsonNote    = "반드시 JSON만 반환. 마크다운 코드블록 없이 순수 JSON만 출력.";
+    const urlRule     = "url 필드는 반드시 아래 [검색URL 목록]의 {q} 를 실제 검색어로 치환한 값을 사용할 것. 임의로 제품 상세 URL을 만들지 말 것.";
+    const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"설명"}';
+    const aSch = '{"type":"유형","style":"스타일","material":"재질","color":"색상","features":["특징"]}';
+    if (isImg) {
+      return ["당신은 가구 이미지 검색 전문가입니다. 첨부된 가구 이미지를 분석하고 아래 거래처에서 해당 제품을 찾아주세요.", "",
+        "[검색 조건]", "- 유형: " + matchDesc, "- 범위: " + rangeDesc + onlineExtra, catLine, kwLine, "",
+        "[거래처 목록]", vendorList, "",
+        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
+        urlRule, "", jsonNote, "",
+        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"키워드","results":[' + rSch + ']}', "",
+        "신뢰도 높은 순 최대 10건."
+      ].join("\n");
+    } else {
+      const q = [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
+      return ['당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.', "",
+        "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra, "",
+        "[거래처 목록]", vendorList, "",
+        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
+        urlRule, "", jsonNote, "",
+        '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}', "",
+        "최대 12건."
+      ].join("\n");
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!images.length && !searchText.trim() && selCats.length === 0) {
+      setError("이미지를 첨부하거나 검색어 / 카테고리를 선택해주세요."); return;
+    }
+    setError(""); setIsSearching(true); setResults(null);
+    try {
+      const targetVendors = selVendors.length === 0 ? vendors : vendors.filter(v => selVendors.includes(v.name));
+      const matchDesc = matchType === "exact" ? "100% 동일 제품 (동일 모델)" : "유사한 디자인의 제품";
+      const rangeDesc = searchRange === "vendors" ? "등록된 거래처 목록 내에서만" : "거래처 목록 + 일반 온라인 포함";
+      const isImg = images.length > 0;
+      const prompt = buildPrompt(isImg, targetVendors, matchDesc, rangeDesc);
+      let messages;
+      if (isImg) {
+        const imgC = images.map(img => ({ type:"image_url", image_url:{ url:`data:${img.mediaType};base64,${img.base64}` } }));
+        messages = [{ role:"user", content:[...imgC, { type:"text", text:prompt }] }];
+      } else {
+        messages = [{ role:"user", content:prompt }];
+      }
+      const res  = await fetch("/api/claude", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ model:"gpt-4o", max_tokens:1000, messages }),
+      });
+      const data  = await res.json();
+      const raw   = data.choices?.[0]?.message?.content ?? "";
+      const clean = raw.replace(/```json/g,"").replace(/```/g,"").trim();
+      const parsed = JSON.parse(clean);
+      const keyword = parsed.search_keyword ?? [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
+      if (parsed.results) {
+        parsed.results = parsed.results.map(r => {
+          const vendor = vendors.find(v => v.name === r.vendor);
+          if (vendor?.search) {
+            r.url = vendor.search.replace("{q}", encodeURIComponent(keyword));
+          }
+          return r;
+        });
+      }
+      setResults(parsed);
+    } catch(e) {
+      setError("검색 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const addVendor = () => {
+    if (!newName.trim() || !newUrl.trim()) return;
+    const url = newUrl.trim().startsWith("http") ? newUrl.trim() : "https://" + newUrl.trim();
+    setVendors(p => [...p, { id:Date.now(), name:newName.trim(), url }].sort((a,b) => a.name.localeCompare(b.name,"ko")));
+    setNewName(""); setNewUrl("");
+  };
+
+  const inSt = { width:"100%", padding:"10px 14px", border:"1px solid "+BDR, borderRadius:"8px", fontSize:"14px", outline:"none", boxSizing:"border-box" };
+
+  // ── Result renderers ──────────────────────────────────────
+  const Badge = ({ confidence }) => {
+    const hi = confidence >= 80;
+    return <div style={{ background: hi ? "#ecfdf5" : "#fefce8", color: hi ? "#065f46" : "#92400e", padding:"3px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700, whiteSpace:"nowrap" }}>{confidence}%</div>;
+  };
+
+  const OpenBtn = ({ url }) => (
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:"5px", background:DARK, color:"#fff", padding:"7px 14px", borderRadius:"6px", textDecoration:"none", fontSize:"12px", fontWeight:600 }}>
+      <IcLink size={12} c="#fff" /> 상품 페이지
+    </a>
+  );
+
+  // Gallery card
+  const GalleryCard = ({ r }) => (
+    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.05)", overflow:"hidden", display:"flex", flexDirection:"column" }}>
+      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"block" }}>
+        <Thumb vendor={r.vendor} size={140} radius={0} />
+      </a>
+      <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:"6px", flex:1 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
+          <Badge confidence={r.confidence} />
+        </div>
+        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"13px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.4 }}>{r.product_name}</a>
+        {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
+        <div style={{ marginTop:"auto", paddingTop:"8px" }}>
+          <OpenBtn url={r.url} />
+        </div>
+      </div>
+    </div>
+  );
+
+  // List card
+  const ListCard = ({ r }) => (
+    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", alignItems:"stretch", overflow:"hidden" }}>
+      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", padding:"14px 16px", borderRight:"1px solid "+BDR, flexShrink:0 }}>
+        <ThumbSquare vendor={r.vendor} size={72} />
+      </a>
+      <div style={{ padding:"14px 16px", flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:"4px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
+          <Badge confidence={r.confidence} />
+        </div>
+        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"14px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.3 }}>{r.product_name}</a>
+        {r.note && <p style={{ fontSize:"12px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
+        <div style={{ display:"flex", alignItems:"center", gap:"10px", marginTop:"6px", flexWrap:"wrap" }}>
+          <span style={{ fontSize:"11px", color:"#94a3b8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"260px" }}>{r.url}</span>
+          <OpenBtn url={r.url} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily:"'Apple SD Gothic Neo','Malgun Gothic',sans-serif", minHeight:"100vh", background:"#f5f6f8" }}>
+
+      {/* HEADER */}
+      <header style={{ background:DARK, color:"#fff", padding:"0 28px", height:"60px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
+        <div>
+          <div style={{ fontSize:"18px", fontWeight:800, letterSpacing:"5px" }}>THE DETAIL</div>
+          <div style={{ fontSize:"10px", color:"#475569", letterSpacing:"3px", marginTop:"2px" }}>VENDOR MAGIC SEARCH</div>
+        </div>
+        <button onClick={() => setShowManager(true)} style={{ background:"transparent", border:"1px solid #334155", color:"#94a3b8", padding:"7px 14px", borderRadius:"6px", cursor:"pointer", fontSize:"12px", fontWeight:600, display:"flex", alignItems:"center", gap:"6px" }}>
+          <IcSettings size={13} c="#94a3b8" /> 거래처 관리
+        </button>
+      </header>
+
+      <main style={{ maxWidth:"1080px", margin:"0 auto", padding:"24px 16px" }}>
+
+        {/* UPLOAD */}
+        <div style={cardSt}>
+          <div style={{ ...labelSt, marginBottom:"12px" }}>이미지 첨부</div>
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setDropActive(true); }}
+            onDragLeave={() => setDropActive(false)}
+            onClick={() => fileRef.current && fileRef.current.click()}
+            style={{ border: dropActive ? "2px solid "+DARK : "2px dashed #d1d5db", borderRadius:"10px", padding:"28px 20px", textAlign:"center", cursor:"pointer", background: dropActive ? "#f0f4ff" : "#fafafa", transition:"all 0.15s" }}
+          >
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:"8px" }}>
+              <IcUpload size={28} c="#94a3b8" w={1.5} />
+            </div>
+            <div style={{ fontSize:"14px", fontWeight:700, color:"#1e293b", marginBottom:"4px" }}>드래그앤드롭 · 클릭하여 파일 선택</div>
+            <div style={{ fontSize:"12px", color:"#94a3b8" }}>Ctrl+V로 캡처 이미지 붙여넣기 · 여러 이미지 동시 검색 지원</div>
+            <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => { addImages(Array.from(e.target.files)); e.target.value=""; }} style={{ display:"none" }} />
+          </div>
+          {images.length > 0 && (
+            <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginTop:"14px" }}>
+              {images.map(img => (
+                <div key={img.id} style={{ position:"relative" }}>
+                  <img src={img.preview} alt="" style={{ width:"90px", height:"90px", objectFit:"cover", borderRadius:"8px", border:"2px solid "+BDR }} />
+                  <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ position:"absolute", top:"-6px", right:"-6px", width:"20px", height:"20px", borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <IcX size={10} c="#fff" w={3} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* VENDOR SELECTION */}
+        <div style={cardSt}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
+            <span style={labelSt}>거래처 선택</span>
+            <button onClick={() => setSelVendors([])} style={{ fontSize:"12px", color:MID, background:"transparent", border:"1px solid "+BDR, padding:"4px 10px", borderRadius:"5px", cursor:"pointer" }}>선택해제</button>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:"7px" }}>
+            <Pill active={selVendors.length === 0} onClick={() => setSelVendors([])}>ALL</Pill>
+            {vendors.map(v => (
+              <Pill key={v.id} active={selVendors.includes(v.name)} onClick={() => toggleVendor(v.name)}>{v.name}</Pill>
+            ))}
+          </div>
+        </div>
+
+        {/* SEARCH SETTINGS */}
+        <div style={cardSt}>
+          <div style={{ ...labelSt, marginBottom:"12px" }}>검색 설정</div>
+          <input style={{ ...inSt, marginBottom:"14px" }} value={searchText} onChange={e => setSearchText(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()} placeholder="검색어 입력 (예: 철재다리 의자, 원목 식탁...)" />
+          <div style={{ marginBottom:"14px" }}>
+            <div style={{ fontSize:"11px", fontWeight:600, color:MID, marginBottom:"8px" }}>카테고리</div>
+            <div style={{ display:"flex", gap:"7px", flexWrap:"wrap" }}>
+              <Pill active={selCats.length === 0} onClick={() => setSelCats([])}>전체</Pill>
+              {CATS.map(cat => <Pill key={cat} active={selCats.includes(cat)} onClick={() => toggleCat(cat)}>{cat}</Pill>)}
+            </div>
+          </div>
+          <div style={{ borderTop:"1px solid #f1f5f9", paddingTop:"14px", display:"flex", gap:"10px", flexWrap:"wrap", alignItems:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>범위</span>
+              <Pill active={searchRange === "vendors"} onClick={() => setSearchRange("vendors")}>거래처 내</Pill>
+              <Pill active={searchRange === "online"} onClick={() => setSearchRange("online")}>
+                <IcGlobe size={12} c={searchRange === "online" ? "#fff" : MID} /> 온라인
+              </Pill>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>유형</span>
+              <Pill active={matchType === "exact"}   onClick={() => setMatchType("exact")}>일치</Pill>
+              <Pill active={matchType === "similar"} onClick={() => setMatchType("similar")}>비슷</Pill>
+            </div>
+            <button onClick={handleSearch} disabled={isSearching} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:"8px", padding:"10px 28px", background: isSearching ? MID : DARK, color:"#fff", border:"none", borderRadius:"8px", fontSize:"14px", fontWeight:700, cursor: isSearching ? "not-allowed" : "pointer" }}>
+              <IcSearch size={15} c="#fff" /> {isSearching ? "검색 중..." : "검색"}
+            </button>
+          </div>
+        </div>
+
+        {/* ERROR */}
+        {error && <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:"8px", padding:"12px 16px", color:"#dc2626", fontSize:"13px", marginBottom:"16px" }}>{error}</div>}
+
+        {/* LOADING */}
+        {isSearching && (
+          <div style={{ textAlign:"center", padding:"56px 24px" }}>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:"16px" }}>
+              <IcSearch size={36} c="#cbd5e1" />
+            </div>
+            <div style={{ fontSize:"15px", fontWeight:700, color:"#1e293b", marginBottom:"4px" }}>AI가 거래처 사이트를 검색하고 있습니다</div>
+            <div style={{ fontSize:"13px", color:MID }}>{images.length > 1 ? images.length + "개 이미지 동시 분석 중" : "잠시만 기다려주세요"}</div>
+          </div>
+        )}
+
+        {/* RESULTS */}
+        {results && !isSearching && (
+          <div>
+            {/* analysis banner */}
+            {results.furniture_analysis && (
+              <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"10px", padding:"14px 18px", marginBottom:"16px" }}>
+                <div style={{ ...labelSt, color:"#166534", marginBottom:"8px" }}>이미지 분석 결과</div>
+                <div style={{ display:"flex", gap:"18px", flexWrap:"wrap", fontSize:"13px", color:"#166534" }}>
+                  {results.furniture_analysis.type     && <span><b>유형:</b> {results.furniture_analysis.type}</span>}
+                  {results.furniture_analysis.style    && <span><b>스타일:</b> {results.furniture_analysis.style}</span>}
+                  {results.furniture_analysis.material && <span><b>재질:</b> {results.furniture_analysis.material}</span>}
+                  {results.furniture_analysis.color    && <span><b>색상:</b> {results.furniture_analysis.color}</span>}
+                </div>
+                {results.furniture_analysis.features && results.furniture_analysis.features.length > 0 && (
+                  <div style={{ fontSize:"12px", color:"#166534", marginTop:"6px" }}><b>특징:</b> {results.furniture_analysis.features.join(" · ")}</div>
+                )}
+                {results.search_keyword && <div style={{ fontSize:"12px", color:"#166534", marginTop:"4px" }}><b>검색 키워드:</b> {results.search_keyword}</div>}
+              </div>
+            )}
+
+            {/* result header with view toggle */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
+              <div style={{ fontSize:"13px", fontWeight:700, color:"#374151" }}>
+                검색 결과 <span style={{ color:DARK }}>{results.results ? results.results.length : 0}건</span>
+              </div>
+              <div style={{ display:"flex", background:"#f1f5f9", borderRadius:"8px", padding:"3px", gap:"2px" }}>
+                <button onClick={() => setViewMode("gallery")} title="갤러리 보기" style={{ width:"32px", height:"32px", borderRadius:"6px", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", background: viewMode === "gallery" ? "#fff" : "transparent", boxShadow: viewMode === "gallery" ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition:"all 0.15s" }}>
+                  <IcGrid size={15} c={viewMode === "gallery" ? DARK : MID} />
+                </button>
+                <button onClick={() => setViewMode("list")} title="리스트 보기" style={{ width:"32px", height:"32px", borderRadius:"6px", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", background: viewMode === "list" ? "#fff" : "transparent", boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition:"all 0.15s" }}>
+                  <IcList size={15} c={viewMode === "list" ? DARK : MID} />
+                </button>
+              </div>
+            </div>
+
+            {/* gallery view */}
+            {viewMode === "gallery" && (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:"14px" }}>
+                {results.results && results.results.map((r, i) => <GalleryCard key={i} r={r} />)}
+              </div>
+            )}
+
+            {/* list view */}
+            {viewMode === "list" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+                {results.results && results.results.map((r, i) => <ListCard key={i} r={r} />)}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* VENDOR MANAGER MODAL */}
+      {showManager && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:"16px" }}>
+          <div style={{ background:"#fff", borderRadius:"16px", width:"100%", maxWidth:"580px", maxHeight:"82vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ padding:"18px 24px", borderBottom:"1px solid "+BDR, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ fontSize:"15px", fontWeight:800, color:DARK }}>거래처 관리</div>
+              <button onClick={() => setShowManager(false)} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", padding:"4px" }}>
+                <IcX size={20} c={MID} />
+              </button>
+            </div>
+            <div style={{ padding:"16px 24px", borderBottom:"1px solid #f1f5f9" }}>
+              <div style={{ ...labelSt, marginBottom:"8px" }}>거래처 추가</div>
+              <div style={{ display:"flex", gap:"8px" }}>
+                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="업체명" style={{ flex:"0 0 110px", padding:"8px 12px", border:"1px solid "+BDR, borderRadius:"6px", fontSize:"13px", outline:"none" }} />
+                <input value={newUrl} onChange={e => setNewUrl(e.target.value)} onKeyDown={e => e.key === "Enter" && addVendor()} placeholder="https://example.com" style={{ flex:1, padding:"8px 12px", border:"1px solid "+BDR, borderRadius:"6px", fontSize:"13px", outline:"none" }} />
+                <button onClick={addVendor} style={{ display:"flex", alignItems:"center", gap:"5px", padding:"8px 14px", background:DARK, color:"#fff", border:"none", borderRadius:"6px", fontSize:"13px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+                  <IcPlus size={13} c="#fff" /> 추가
+                </button>
+              </div>
+            </div>
+            <div style={{ overflowY:"auto", flex:1, padding:"8px 24px" }}>
+              <div style={{ ...labelSt, padding:"10px 0 6px", borderBottom:"1px solid #f1f5f9" }}>전체 {vendors.length}개 거래처</div>
+              {vendors.map(v => (
+                <div key={v.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"10px 0", borderBottom:"1px solid #f8fafc" }}>
+                  <div style={{ flex:"0 0 90px", fontSize:"13px", fontWeight:700, color:"#1e293b" }}>{v.name}</div>
+                  <a href={v.url} target="_blank" rel="noreferrer" style={{ flex:1, fontSize:"12px", color:MID, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textDecoration:"none" }}>{v.url}</a>
+                  <button onClick={() => { setVendors(p => p.filter(x => x.id !== v.id)); setSelVendors(p => p.filter(n => n !== v.name)); }} style={{ display:"flex", alignItems:"center", gap:"4px", padding:"4px 10px", background:"transparent", border:"1px solid #fecaca", color:"#ef4444", borderRadius:"5px", fontSize:"12px", cursor:"pointer", whiteSpace:"nowrap" }}>
+                    <IcTrash size={11} c="#ef4444" /> 삭제
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
