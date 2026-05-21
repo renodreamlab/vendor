@@ -316,15 +316,11 @@ export default function App() {
       if (parsed.results) {
         parsed.results = parsed.results.map(r => {
           const vendor = vendors.find(v => v.name === r.vendor);
-          if (vendor) {
+              if (vendor) {
             const domain = new URL(vendor.url).hostname;
-            // 이미지 검색 시: 구글 이미지 검색으로 시각적 비교 가능하게
-            // 텍스트 검색 시: 거래처 검색 URL 사용
-            r.url = isImg
-              ? `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}&tbm=isch`
-              : vendor.search
-                ? vendor.search.replace("{q}", encodeURIComponent(keyword))
-                : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
+            r.url = vendor.search
+              ? vendor.search.replace("{q}", encodeURIComponent(keyword))
+              : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
           }
           return r;
         });
@@ -352,14 +348,11 @@ export default function App() {
     return <div style={{ background: hi ? "#ecfdf5" : "#fefce8", color: hi ? "#065f46" : "#92400e", padding:"3px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700, whiteSpace:"nowrap" }}>{confidence}%</div>;
   };
 
-  const OpenBtn = ({ url }) => {
-    const isGoogleImg = url && url.includes("tbm=isch");
-    return (
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:"5px", background:DARK, color:"#fff", padding:"7px 14px", borderRadius:"6px", textDecoration:"none", fontSize:"12px", fontWeight:600 }}>
-        <IcLink size={12} c="#fff" /> {isGoogleImg ? "이미지로 찾기" : "상품 페이지"}
-      </a>
-    );
-  };
+  const OpenBtn = ({ url }) => (
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:"5px", background:DARK, color:"#fff", padding:"7px 14px", borderRadius:"6px", textDecoration:"none", fontSize:"12px", fontWeight:600 }}>
+      <IcLink size={12} c="#fff" /> 상품 페이지
+    </a>
+  );
 
   // Gallery card
   const GalleryCard = ({ r }) => (
