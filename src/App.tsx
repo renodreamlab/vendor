@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 
 const DEFAULT_VENDORS = [
   { id:1,  name:"가구로드",    url:"https://m.gaguroad.com/",           search:"https://m.gaguroad.com/search?keyword={q}" },
@@ -297,66 +297,26 @@ export default function App() {
     const targetVendors = selVendors.length === 0 ? vendors : vendors.filter(v => selVendors.includes(v.name));
 
     try {
-      // ══ 이미지 검색: 시각적 유사도 기반 ══════════════════════
+      // ══ 이미지 검색: Supabase 벡터 검색 ══════════════════════
       if (images.length > 0) {
-
-        // Step 1: 가구 유형 파악 (탐색용 카테고리)
         setSearchStatus("이미지 분석 중...");
-        const typeRes = await fetch("/api/claude", {
+        const vendorNames = selVendors.length === 0 ? [] : selVendors;
+
+        const res2 = await fetch("/api/visual-search", {
           method:"POST", headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({
-            model:"gpt-4o-mini", max_tokens:20,
-            messages:[{ role:"user", content:[
-              ...images.map(img => ({ type:"image_url", image_url:{ url:`data:${img.mediaType};base64,${img.base64}`, detail:"low" } })),
-              { type:"text", text:"이 가구의 종류를 한국어 단어 하나로만 답하세요. 예: 의자, 소파, 침대, 테이블, 선반, 책상, 조명. 다른 말 없이 단어만." }
-            ]}],
+            images: images.map(i => ({ base64: i.base64, mediaType: i.mediaType })),
+            matchType,
+            vendors: vendorNames,
           }),
         });
-        const typeData = await typeRes.json();
-        const furnitureType = typeData.choices?.[0]?.message?.content?.trim().replace(/[^가-힣a-zA-Z]/g,"") || "의자";
+        const d = await res2.json();
+        if (d.error && !d.results?.length) throw new Error(d.error);
 
-        // Step 2: 각 거래처 제품 스크래핑 (병렬)
-        setSearchStatus(`거래처 ${targetVendors.length}곳에서 제품 수집 중...`);
-        const scraped = await Promise.all(
-          targetVendors.map(async (v) => {
-            const url = v.search ? v.search.replace("{q}", encodeURIComponent(furnitureType)) : v.url;
-            try {
-              const r = await fetch(`/api/scrape-products?url=${encodeURIComponent(url)}`);
-              const d = await r.json();
-              return { vendor:v.name, vendorUrl:v.url, searchUrl:url, products: d.products || [] };
-            } catch { return { vendor:v.name, vendorUrl:v.url, searchUrl:url, products:[] }; }
-          })
-        );
-
-        // Step 3: 거래처별 시각 비교 (병렬)
-        setSearchStatus("이미지 유사도 비교 중...");
-        const qImg = images[0];
-        const minScore = matchType === "exact" ? 100 : 70;
-        const compared = await Promise.all(
-          scraped.map(async (vr) => {
-            if (!vr.products.length) return { ...vr, matches:[] };
-            try {
-              const r = await fetch("/api/compare-images", {
-                method:"POST", headers:{ "Content-Type":"application/json" },
-                body: JSON.stringify({
-                  queryImage: qImg.base64, queryMediaType: qImg.mediaType,
-                  products: vr.products.map(p => ({ ...p, vendor:vr.vendor })),
-                  minScore,
-                }),
-              });
-              const d = await r.json();
-              return { ...vr, matches: d.matches || [] };
-            } catch { return { ...vr, matches:[] }; }
-          })
-        );
-
-        // Step 4: 전체 매치 집계 → 유사도 순 정렬
-        const allMatches = compared
-          .flatMap(vr => vr.matches.map(m => ({ ...m, vendorUrl: vr.searchUrl })))
-          .sort((a,b) => b.score - a.score);
-
-        setResults({ mode:"visual", furnitureType, vendorResults: compared, allMatches });
+        const allMatches = d.results ?? [];
+        setResults({ mode:"visual", description: d.description, allMatches });
         setAiMatches(allMatches);
+        if (!allMatches.length) setError("인덱스에서 유사한 제품을 찾지 못했습니다. 먼저 [거래처 인덱싱]을 실행해주세요.");
         if (!allMatches.length) setError("유사한 제품을 찾지 못했습니다. 거래처를 더 선택하거나 다시 시도해보세요.");
 
       } else {
@@ -451,6 +411,43 @@ export default function App() {
   const inSt = { width:"100%", padding:"10px 14px", border:"1px solid "+BDR, borderRadius:"8px", fontSize:"14px", outline:"none", boxSizing:"border-box" };
 
   // ── Result renderers ──────────────────────────────────────
+  // ── 인덱싱 섹션 컴포넌트 ─────────────────────────────────
+  const IndexSection = () => {
+    const [indexing, setIndexing] = React.useState(false);
+    const [indexLog, setIndexLog] = React.useState("");
+    const runIndex = async () => {
+      setIndexing(true); setIndexLog("인덱싱 시작...");
+      try {
+        const r = await fetch("/api/index-products", {
+          method:"POST", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ secret:"vendor2025" }),
+        });
+        const d = await r.json();
+        setIndexLog(`완료: ${d.indexed}개 저장 (총 ${d.total}개 처리)\n${(d.log||[]).slice(-5).join("\n")}`);
+      } catch(e) {
+        setIndexLog("오류: " + e.message);
+      } finally { setIndexing(false); }
+    };
+    return (
+      <div style={{ padding:"14px 24px", borderBottom:"1px solid #f1f5f9", background:"#fafafa" }}>
+        <div style={{ ...labelSt, marginBottom:"8px" }}>제품 인덱싱 (이미지 검색용 DB 구축)</div>
+        <div style={{ fontSize:"12px", color:MID, marginBottom:"8px" }}>
+          거래처 전체 제품을 크롤링해서 AI 설명 + 임베딩을 Supabase에 저장합니다.<br/>
+          처음 1회 또는 거래처 업데이트 시 실행하세요. (소요 시간: 30~60분)
+        </div>
+        <button onClick={runIndex} disabled={indexing}
+          style={{ padding:"8px 18px", background: indexing ? MID : "#7c3aed", color:"#fff", border:"none", borderRadius:"6px", fontSize:"13px", fontWeight:700, cursor: indexing ? "not-allowed" : "pointer" }}>
+          {indexing ? "인덱싱 중... (백그라운드 실행)" : "▶ 인덱싱 실행"}
+        </button>
+        {indexLog && (
+          <pre style={{ marginTop:"8px", padding:"8px", background:"#f1f5f9", borderRadius:"6px", fontSize:"11px", color:"#374151", whiteSpace:"pre-wrap", maxHeight:"120px", overflow:"auto" }}>
+            {indexLog}
+          </pre>
+        )}
+      </div>
+    );
+  };
+
   const Badge = ({ confidence }) => {
     const hi = confidence >= 80;
     return <div style={{ background: hi ? "#ecfdf5" : "#fefce8", color: hi ? "#065f46" : "#92400e", padding:"3px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700, whiteSpace:"nowrap" }}>{confidence}%</div>;
@@ -641,65 +638,51 @@ export default function App() {
         {/* RESULTS */}
         {results && !isSearching && (
           <div>
-            {/* ── 이미지 검색 결과 ── */}
+            {/* ── 이미지 검색 결과 (벡터 검색) ── */}
             {results.mode === "visual" && (
               <div>
-                {/* 유사도 TOP 결과 */}
-                {aiMatches.length > 0 && (
-                  <div style={{ marginBottom:"20px" }}>
-                    <div style={{ ...labelSt, marginBottom:"12px" }}>유사도 높은 제품 — {results.furnitureType} 기준</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:"12px" }}>
-                      {aiMatches.map((m, i) => (
-                        <a key={i} href={m.productUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ textDecoration:"none", background:"#fff", borderRadius:"10px", overflow:"hidden", border: i===0 ? "2px solid "+DARK : "1px solid #e8eaed", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column" }}>
-                          {i === 0 && <div style={{ background:DARK, color:"#fff", fontSize:"10px", fontWeight:700, textAlign:"center", padding:"3px" }}>최고 유사</div>}
-                          <img src={m.imageUrl} alt={m.name} style={{ width:"100%", height:"140px", objectFit:"cover" }} onError={e => { e.currentTarget.style.display="none"; }} />
-                          <div style={{ padding:"8px 10px" }}>
-                            <div style={{ fontSize:"11px", fontWeight:700, color:MID }}>{m.vendor}</div>
-                            <div style={{ fontSize:"12px", fontWeight:600, color:"#1e293b", marginTop:"2px", lineHeight:1.3 }}>{m.name || "제품 보기"}</div>
-                            <div style={{ display:"flex", alignItems:"center", gap:"4px", marginTop:"5px" }}>
-                              <div style={{ background: m.score>=80?"#dcfce7":"#fef9c3", color: m.score>=80?"#166534":"#92400e", padding:"2px 7px", borderRadius:"10px", fontSize:"11px", fontWeight:700 }}>{m.score}점</div>
-                              <span style={{ fontSize:"10px", color:"#94a3b8" }}>{m.reason}</span>
-                            </div>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
+                {results.description && (
+                  <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"10px", padding:"12px 16px", marginBottom:"16px", fontSize:"13px", color:"#166534" }}>
+                    <b>이미지 분석:</b> {results.description}
                   </div>
                 )}
-
-                {/* 거래처별 전체 제품 그리드 */}
-                <div style={{ ...labelSt, marginBottom:"12px" }}>거래처별 수집 제품</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
-                  {results.vendorResults && results.vendorResults.map((vr, i) => (
-                    <div key={i} style={{ background:"#fff", borderRadius:"12px", border:"1px solid #e8eaed", overflow:"hidden" }}>
-                      <div style={{ padding:"10px 14px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontSize:"13px", fontWeight:800, color:DARK }}>
-                          {vr.vendor}{vendors.find(v=>v.name===vr.vendor)?.warn && <span style={{ marginLeft:"4px" }}>⚠️</span>}
-                        </span>
-                        <a href={vr.searchUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:"11px", color:MID, textDecoration:"none" }}>전체 보기 →</a>
-                      </div>
-                      {vr.products.length > 0 ? (
-                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(90px, 1fr))", gap:"2px", padding:"2px", background:"#f8fafc" }}>
-                          {vr.products.map((p, j) => {
-                            const isMatch = vr.matches?.some(m => m.imageUrl === p.imageUrl);
-                            return (
-                              <a key={j} href={p.productUrl || vr.searchUrl} target="_blank" rel="noopener noreferrer"
-                                style={{ display:"block", aspectRatio:"1", overflow:"hidden", position:"relative", outline: isMatch ? "3px solid "+DARK : "none" }}>
-                                <img src={p.imageUrl} alt={p.name}
-                                  style={{ width:"100%", height:"100%", objectFit:"cover" }}
-                                  onError={e => { e.currentTarget.parentElement.style.display="none"; }} />
-                                {isMatch && <div style={{ position:"absolute", top:"2px", right:"2px", background:DARK, color:"#fff", borderRadius:"50%", width:"16px", height:"16px", fontSize:"9px", fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center" }}>✓</div>}
-                              </a>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ padding:"16px", fontSize:"12px", color:MID, textAlign:"center" }}>제품을 가져오지 못했습니다</div>
-                      )}
-                    </div>
-                  ))}
+                <div style={{ ...labelSt, marginBottom:"12px" }}>
+                  유사 제품 {aiMatches.length}건 — 유사도 순
                 </div>
+                {aiMatches.length > 0 ? (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))", gap:"14px" }}>
+                    {aiMatches.map((m, i) => (
+                      <a key={i} href={m.product_url} target="_blank" rel="noopener noreferrer"
+                        style={{ textDecoration:"none", background:"#fff", borderRadius:"10px", overflow:"hidden",
+                          border: i===0 ? "2px solid "+DARK : "1px solid #e8eaed",
+                          boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column" }}>
+                        {i === 0 && (
+                          <div style={{ background:DARK, color:"#fff", fontSize:"10px", fontWeight:700, textAlign:"center", padding:"3px" }}>
+                            최고 유사
+                          </div>
+                        )}
+                        <img src={m.image_url} alt={m.vendor}
+                          style={{ width:"100%", height:"160px", objectFit:"cover" }}
+                          onError={e => { e.currentTarget.style.display="none"; }} />
+                        <div style={{ padding:"10px 12px" }}>
+                          <div style={{ fontSize:"11px", fontWeight:700, color:MID, marginBottom:"3px" }}>{m.vendor}</div>
+                          <div style={{ fontSize:"12px", color:"#475569", lineHeight:1.4, marginBottom:"6px" }}>{m.description}</div>
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                            <div style={{ background: m.score>=80?"#dcfce7":"#fef9c3", color: m.score>=80?"#166534":"#92400e",
+                              padding:"2px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700 }}>
+                              유사도 {m.score}%
+                            </div>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign:"center", padding:"40px", color:MID, fontSize:"14px" }}>
+                    인덱스에 제품이 없습니다.<br/>
+                    <b>거래처 관리</b> → <b>인덱싱 실행</b>을 먼저 해주세요.
+                  </div>
+                )}
               </div>
             )}
 
@@ -728,6 +711,8 @@ export default function App() {
                 <IcX size={20} c={MID} />
               </button>
             </div>
+            {/* 인덱싱 섹션 */}
+            <IndexSection />
             <div style={{ padding:"16px 24px", borderBottom:"1px solid #f1f5f9" }}>
               <div style={{ ...labelSt, marginBottom:"8px" }}>거래처 추가</div>
               <div style={{ display:"flex", gap:"8px" }}>
