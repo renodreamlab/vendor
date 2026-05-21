@@ -333,17 +333,17 @@ export default function App() {
       }
       setResults(parsed);
 
-      // 각 결과 거래처 검색 URL에서 실제 제품 이미지 병렬 로딩
+      // 각 결과 거래처 검색 URL에서 제품 여러 개 스크래핑
       if (parsed.results) {
         parsed.results.forEach((r, i) => {
-          fetch(`/api/fetch-image?url=${encodeURIComponent(r.url)}`)
+          fetch(`/api/scrape-products?url=${encodeURIComponent(r.url)}`)
             .then(res => res.json())
             .then(data => {
-              if (data.imageUrl) {
+              if (data.products?.length) {
                 setResults(prev => {
                   if (!prev || !prev.results) return prev;
                   const next = { ...prev, results: [...prev.results] };
-                  next.results[i] = { ...next.results[i], thumbnail: data.imageUrl };
+                  next.results[i] = { ...next.results[i], products: data.products, thumbnail: data.products[0]?.imageUrl };
                   return next;
                 });
               }
@@ -408,58 +408,53 @@ export default function App() {
     </a>
   );
 
-  // Gallery card
-  const GalleryCard = ({ r }) => (
-    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.05)", overflow:"hidden", display:"flex", flexDirection:"column" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"block", height:"140px", overflow:"hidden", position:"relative" }}>
-        {r.thumbnail
-          ? <img src={r.thumbnail} alt={r.product_name} style={{ width:"100%", height:"140px", objectFit:"cover", display:"block" }} onError={e => { e.currentTarget.style.display="none"; e.currentTarget.nextSibling.style.display="flex"; }} />
-          : null}
-        <div style={{ display: r.thumbnail ? "none" : "flex", position:"absolute", inset:0 }}>
-          <Thumb vendor={r.vendor} size={140} radius={0} />
-        </div>
-      </a>
-      <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:"6px", flex:1 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>
-            {r.vendor}{vendors.find(v=>v.name===r.vendor)?.warn && <span title="사이트 접속 오류 가능" style={{ marginLeft:"3px" }}>⚠️</span>}
+  // 거래처 카드 — 제품 여러 개 그리드
+  const VendorCard = ({ r }) => {
+    const warn = vendors.find(v => v.name === r.vendor)?.warn;
+    const prods = r.products ?? (r.thumbnail ? [{ imageUrl: r.thumbnail, productUrl: r.url, name: r.product_name }] : []);
+    return (
+      <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #e8eaed", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", overflow:"hidden" }}>
+        {/* 헤더 */}
+        <div style={{ padding:"10px 14px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontSize:"13px", fontWeight:800, color:DARK }}>
+            {r.vendor}{warn && <span title="접속 오류 가능" style={{ marginLeft:"4px" }}>⚠️</span>}
           </span>
-          <Badge confidence={r.confidence} />
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <Badge confidence={r.confidence} />
+            <OpenBtn url={r.url} />
+          </div>
         </div>
-        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"13px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.4 }}>{r.product_name}</a>
-        {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
-        {vendors.find(v=>v.name===r.vendor)?.warn && <p style={{ fontSize:"11px", color:"#f59e0b", margin:0 }}>⚠️ 사이트 접속 오류가 발생할 수 있습니다</p>}
-        <div style={{ marginTop:"auto", paddingTop:"8px" }}>
-          <OpenBtn url={r.url} />
-        </div>
+        {/* 제품 이미지 그리드 */}
+        {prods.length > 0 ? (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(100px, 1fr))", gap:"2px", padding:"2px", background:"#f8fafc" }}>
+            {prods.map((p, i) => (
+              <a key={i} href={p.productUrl || r.url} target="_blank" rel="noopener noreferrer"
+                style={{ display:"block", aspectRatio:"1", overflow:"hidden", background:"#f1f5f9" }}>
+                <img src={p.imageUrl} alt={p.name || r.vendor}
+                  style={{ width:"100%", height:"100%", objectFit:"cover", transition:"transform 0.15s" }}
+                  onMouseOver={e => e.currentTarget.style.transform="scale(1.05)"}
+                  onMouseOut={e => e.currentTarget.style.transform="scale(1)"}
+                  onError={e => { e.currentTarget.style.display="none"; }} />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={{ height:"120px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Thumb vendor={r.vendor} size={120} radius={0} />
+          </div>
+        )}
+        {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, padding:"8px 14px", lineHeight:1.4 }}>{r.note}</p>}
+        {warn && <p style={{ fontSize:"11px", color:"#f59e0b", margin:0, padding:"0 14px 8px" }}>⚠️ 사이트 접속 오류가 발생할 수 있습니다</p>}
       </div>
-    </div>
-  );
+    );
+  };
+
+  // Gallery card (하위 호환)
+  const GalleryCard = ({ r }) => <VendorCard r={r} />;
 
   // List card
   const ListCard = ({ r }) => (
-    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", alignItems:"stretch", overflow:"hidden" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", width:"100px", borderRight:"1px solid "+BDR, flexShrink:0, overflow:"hidden", position:"relative" }}>
-        {r.thumbnail
-          ? <img src={r.thumbnail} alt={r.product_name} style={{ width:"100px", height:"100%", minHeight:"100px", objectFit:"cover", display:"block" }} onError={e => { e.currentTarget.style.display="none"; e.currentTarget.nextSibling.style.display="flex"; }} />
-          : null}
-        <div style={{ display: r.thumbnail ? "none" : "flex", padding:"14px 16px" }}>
-          <ThumbSquare vendor={r.vendor} size={72} />
-        </div>
-      </a>
-      <div style={{ padding:"14px 16px", flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:"4px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
-          <Badge confidence={r.confidence} />
-        </div>
-        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"14px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.3 }}>{r.product_name}</a>
-        {r.note && <p style={{ fontSize:"12px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
-        <div style={{ display:"flex", alignItems:"center", gap:"10px", marginTop:"6px", flexWrap:"wrap" }}>
-          <span style={{ fontSize:"11px", color:"#94a3b8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"260px" }}>{r.url}</span>
-          <OpenBtn url={r.url} />
-        </div>
-      </div>
-    </div>
+    <VendorCard r={r} />
   );
 
   return (
