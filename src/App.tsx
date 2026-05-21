@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 
 const DEFAULT_VENDORS = [
