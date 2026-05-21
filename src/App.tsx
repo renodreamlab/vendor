@@ -179,6 +179,8 @@ export default function App() {
   const [matchType, setMatchType]     = useState("exact");
   const [results, setResults]         = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [aiMatches, setAiMatches]     = useState([]);
   const [viewMode, setViewMode]       = useState("gallery"); // "gallery" | "list"
   const [showManager, setShowManager] = useState(false);
   const [newName, setNewName]         = useState("");
@@ -353,6 +355,35 @@ export default function App() {
       setError("검색 중 오류가 발생했습니다: " + (e?.message ?? "다시 시도해주세요."));
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // ── AI 유사 제품 비교 ─────────────────────────────────────
+  const handleAiCompare = async () => {
+    if (!images.length || !results?.results?.length) return;
+    setIsComparing(true);
+    setAiMatches([]);
+    try {
+      // 현재 결과에서 썸네일이 있는 제품들 수집
+      const products = results.results
+        .filter(r => r.thumbnail)
+        .map(r => ({ imageUrl: r.thumbnail, productUrl: r.url, name: r.product_name, vendor: r.vendor }));
+      if (!products.length) { setError("썸네일 로딩 후 다시 시도해주세요."); return; }
+
+      // 첫 번째 이미지 사용
+      const qImg = images[0];
+      const res2 = await fetch("/api/compare-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queryImage: qImg.base64, queryMediaType: qImg.mediaType, products }),
+      });
+      const data = await res2.json();
+      setAiMatches(data.matches ?? []);
+      if (!data.matches?.length) setError("유사한 제품을 찾지 못했습니다. 더 많은 거래처를 선택하거나 다시 시도해보세요.");
+    } catch(e) {
+      setError("AI 비교 중 오류: " + (e?.message ?? ""));
+    } finally {
+      setIsComparing(false);
     }
   };
 
@@ -561,8 +592,19 @@ export default function App() {
 
             {/* result header with view toggle */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
-              <div style={{ fontSize:"13px", fontWeight:700, color:"#374151" }}>
-                검색 결과 <span style={{ color:DARK }}>{results.results ? results.results.length : 0}건</span>
+              <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+                <div style={{ fontSize:"13px", fontWeight:700, color:"#374151" }}>
+                  검색 결과 <span style={{ color:DARK }}>{results.results ? results.results.length : 0}건</span>
+                </div>
+                {images.length > 0 && (
+                  <button
+                    onClick={handleAiCompare}
+                    disabled={isComparing}
+                    style={{ display:"flex", alignItems:"center", gap:"6px", padding:"7px 14px", background: isComparing ? MID : "#7c3aed", color:"#fff", border:"none", borderRadius:"6px", fontSize:"12px", fontWeight:700, cursor: isComparing ? "not-allowed" : "pointer" }}
+                  >
+                    ✨ {isComparing ? "AI 비교 중..." : "AI로 유사 제품 찾기"}
+                  </button>
+                )}
               </div>
               <div style={{ display:"flex", background:"#f1f5f9", borderRadius:"8px", padding:"3px", gap:"2px" }}>
                 <button onClick={() => setViewMode("gallery")} title="갤러리 보기" style={{ width:"32px", height:"32px", borderRadius:"6px", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", background: viewMode === "gallery" ? "#fff" : "transparent", boxShadow: viewMode === "gallery" ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition:"all 0.15s" }}>
@@ -573,6 +615,25 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* AI 매치 결과 */}
+            {aiMatches.length > 0 && (
+              <div style={{ background:"#faf5ff", border:"1px solid #c4b5fd", borderRadius:"10px", padding:"16px 18px", marginBottom:"16px" }}>
+                <div style={{ ...labelSt, color:"#6d28d9", marginBottom:"12px" }}>✨ AI 유사 제품 — 형태 기준 TOP {aiMatches.length}</div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:"10px" }}>
+                  {aiMatches.map((m, i) => (
+                    <a key={i} href={m.productUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", background:"#fff", borderRadius:"8px", overflow:"hidden", border:"2px solid #7c3aed", display:"flex", flexDirection:"column" }}>
+                      <img src={m.imageUrl} alt={m.name} style={{ width:"100%", height:"120px", objectFit:"cover" }} />
+                      <div style={{ padding:"8px 10px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:"#6d28d9" }}>{m.vendor}</div>
+                        <div style={{ fontSize:"11px", color:"#374151", marginTop:"2px", lineHeight:1.3 }}>{m.name || "제품 보기"}</div>
+                        <div style={{ fontSize:"10px", color:"#7c3aed", marginTop:"4px" }}>유사도 {m.score}점 · {m.reason}</div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* gallery view */}
             {viewMode === "gallery" && (
