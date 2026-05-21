@@ -640,14 +640,18 @@ export default function App() {
                           style={{ width:"100%", height:"180px", objectFit:"cover" }}
                           onError={e => { e.currentTarget.style.display="none"; }} />
                         <div style={{ padding:"10px 12px" }}>
-                          <div style={{ fontSize:"12px", fontWeight:700, color:DARK, marginBottom:"4px" }}>{m.vendor}</div>
+                          <div style={{ fontSize:"12px", fontWeight:700, color:DARK, marginBottom:"3px" }}>{m.vendor}</div>
+                          {m.description && (
+                            <div style={{ fontSize:"10px", color:"#64748b", marginBottom:"4px", lineHeight:1.3, wordBreak:"break-all" }}>
+                              {m.description.slice(0,60)}
+                            </div>
+                          )}
                           <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                            <div style={{ background: m.score>=85?"#dcfce7": m.score>=75?"#dbeafe":"#fef9c3",
-                              color: m.score>=85?"#166534": m.score>=75?"#1e40af":"#92400e",
+                            <div style={{ background: m.score>=70?"#dcfce7": m.score>=60?"#dbeafe":"#fef9c3",
+                              color: m.score>=70?"#166534": m.score>=60?"#1e40af":"#92400e",
                               padding:"2px 8px", borderRadius:"10px", fontSize:"12px", fontWeight:800 }}>
                               {m.score}%
                             </div>
-                            <span style={{ fontSize:"11px", color:MID }}>형태 일치</span>
                           </div>
                         </div>
                       </a>

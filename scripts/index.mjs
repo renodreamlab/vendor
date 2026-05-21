@@ -14,9 +14,8 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf("="); return [l.slice(0,i).trim(), l.slice(i+1).trim()]; })
 );
 
-const supabase  = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
-const HF_TOKEN  = env.HF_TOKEN;
-const CLIP_URL  = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32";
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_KEY);
+const OPENAI   = env.OPENAI_API_KEY;
 
 const VENDORS = [
   { name:"가구로드",    url:"https://m.gaguroad.com/" },
@@ -58,30 +57,50 @@ const resolve = (src, base) => {
   return null;
 };
 
-// ── CLIP 임베딩 (이미지 URL → 512차원 벡터) ────────────────
-async function clipEmbed(imageUrl) {
+// ── GPT-4o 초정밀 시각 설명 생성 ──────────────────────────
+const DESCRIBE_PROMPT = `이 가구 이미지를 분석해서 아래 형식으로 정확히 출력하세요.
+다른 제품과 구별되는 특징을 최대한 구체적으로 적으세요. 색상은 절대 포함하지 마세요.
+
+형식(한 줄): 가구종류|등받이:[상세모양/패턴/구조]|다리:[개수+형태]|좌판:[형태]|특징:[가장독특한시각특징]
+
+예시:
+의자|등받이:나비날개형이중분리홀+물결릿지패턴전면|다리:4발얇은금속|좌판:넓은유기쉘|특징:물결패턴쉘의자버터플라이
+의자|등받이:없음(스툴)|다리:원형받침대|좌판:둥근쿠션|특징:원형회전스툴
+소파|등받이:낮은쿠션형3단분리|다리:없음(바닥형)|좌판:3인용긴직선|특징:모듈형로우소파`;
+
+async function describeImage(imageUrl) {
   try {
     const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(5000) });
     if (!imgRes.ok) return null;
-    const imgBytes = await imgRes.arrayBuffer();
+    const buf = await imgRes.arrayBuffer();
+    const ct  = imgRes.headers.get("content-type") || "image/jpeg";
+    const b64 = Buffer.from(buf).toString("base64");
 
-    // HuggingFace CLIP — 이미지 바이트 직접 전송
-    const res = await fetch(CLIP_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${HF_TOKEN}` },
-      body: imgBytes,
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json","Authorization":`Bearer ${OPENAI}` },
+      body: JSON.stringify({
+        model:"gpt-4o", max_tokens:120,
+        messages:[{ role:"user", content:[
+          { type:"image_url", image_url:{ url:`data:${ct};base64,${b64}`, detail:"low" } },
+          { type:"text", text: DESCRIBE_PROMPT }
+        ]}],
+      }),
     });
-    const data = await res.json();
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content?.trim() ?? null;
+  } catch { return null; }
+}
 
-    // 응답: [[...512 floats]] 또는 [...512 floats]
-    const vec = Array.isArray(data[0]) ? data[0] : data;
-    if (Array.isArray(vec) && vec.length === 512) return vec;
-    console.error("  CLIP 응답 형식 오류:", JSON.stringify(data).slice(0, 100));
-    return null;
-  } catch(e) {
-    console.error("  CLIP 오류:", e.message);
-    return null;
-  }
+// ── 텍스트 임베딩 (1536차원) ────────────────────────────────
+async function embed(text) {
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json","Authorization":`Bearer ${OPENAI}` },
+    body: JSON.stringify({ model:"text-embedding-3-small", input: text }),
+  });
+  const d = await res.json();
+  return d.data?.[0]?.embedding ?? null;
 }
 
 // ── 페이지에서 제품 수집 ────────────────────────────────────
@@ -149,12 +168,8 @@ async function main() {
     ? VENDORS.filter(v => args.includes(v.name))
     : VENDORS;
 
-  console.log(`\n🚀 CLIP 인덱싱 시작 — ${targets.length}개 거래처`);
-  console.log(`모델: openai/clip-vit-base-patch32 (512차원)\n`);
-
-  // CLIP 워밍업 (첫 요청은 모델 로딩 시간 필요)
-  console.log("⏳ CLIP 모델 로딩 중...");
-  await sleep(3000);
+  console.log(`\n🚀 인덱싱 시작 — ${targets.length}개 거래처`);
+  console.log(`방식: GPT-4o 초정밀 설명 + text-embedding-3-small (1536차원)\n`);
 
   let totalIndexed = 0;
 
@@ -181,13 +196,17 @@ async function main() {
             .from("products").select("id").eq("image_url", p.imageUrl).maybeSingle();
           if (existing) continue;
 
-          const embedding = await clipEmbed(p.imageUrl);
+          const description = await describeImage(p.imageUrl);
+          if (!description) continue;
+
+          const embedding = await embed(description);
           if (!embedding) continue;
 
           const { error } = await supabase.from("products").upsert({
             vendor:      vendor.name,
             product_url: p.productUrl,
             image_url:   p.imageUrl,
+            description,
             embedding,
           }, { onConflict: "image_url" });
 
