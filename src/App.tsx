@@ -226,16 +226,17 @@ export default function App() {
     const catLine     = selCats.length > 0 ? "\n- 카테고리 필터: " + selCats.join(", ") : "";
     const kwLine      = searchText.trim() ? "\n- 추가 키워드: " + searchText.trim() : "";
     const jsonNote    = "반드시 JSON만 반환. 마크다운 코드블록 없이 순수 JSON만 출력.";
-    const urlRule     = "url 필드는 반드시 아래 [검색URL 목록]의 {q} 를 실제 검색어로 치환한 값을 사용할 것. 임의로 제품 상세 URL을 만들지 말 것.";
+    const urlRule     = "url 필드는 반드시 아래 [검색URL 목록]의 {q}를 search_keyword로 치환한 값 사용. 임의 제품 상세 URL 생성 금지.";
+    const kwRule      = "search_keyword는 한국 가구 쇼핑몰 검색엔진에서 실제로 결과가 나올 수 있는 짧은 단어로 작성. 예: '의자', '식탁', '철제 선반', '소파'. 긴 설명형 문장 금지.";
     const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"설명"}';
     const aSch = '{"type":"유형","style":"스타일","material":"재질","color":"색상","features":["특징"]}';
     if (isImg) {
       return ["당신은 가구 이미지 검색 전문가입니다. 첨부된 가구 이미지를 분석하고 아래 거래처에서 해당 제품을 찾아주세요.", "",
         "[검색 조건]", "- 유형: " + matchDesc, "- 범위: " + rangeDesc + onlineExtra, catLine, kwLine, "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
-        urlRule, "", jsonNote, "",
-        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"키워드","results":[' + rSch + ']}', "",
+        "[검색URL 목록 - {q}를 search_keyword로 치환]", searchList, "",
+        urlRule, kwRule, "", jsonNote, "",
+        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"의자","results":[' + rSch + ']}', "",
         "신뢰도 높은 순 최대 10건."
       ].join("\n");
     } else {
@@ -243,8 +244,8 @@ export default function App() {
       return ['당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.', "",
         "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra, "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
-        urlRule, "", jsonNote, "",
+        "[검색URL 목록 - {q}를 search_keyword로 치환]", searchList, "",
+        urlRule, kwRule, "", jsonNote, "",
         '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}', "",
         "최대 12건."
       ].join("\n");
