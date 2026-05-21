@@ -222,7 +222,9 @@ export default function App() {
   const buildPrompt = (isImg, targetVendors, matchDesc, rangeDesc) => {
     const vendorList  = targetVendors.map(v => v.name + ": " + v.url).join("\n");
     const searchList  = targetVendors.map(v => v.name + ": " + (v.search ?? v.url)).join("\n");
-    const onlineExtra = searchRange === "online" ? "\n쿠팡, 네이버쇼핑, G마켓 등 일반 온라인도 포함." : "";
+    const onlineExtra = searchRange === "online"
+      ? "\n국내외 온라인 모두 포함. 국내: 쿠팡·네이버쇼핑·G마켓·옥션·11번가. 해외: Amazon·IKEA·Wayfair·Alibaba·1688·AliExpress 등. 거래처 목록 외 결과도 포함 가능하며 이 경우 url은 실제 상품 또는 검색 페이지 URL 사용."
+      : "";
     const catLine     = selCats.length > 0 ? "\n- 카테고리 필터: " + selCats.join(", ") : "";
     const kwLine      = searchText.trim() ? "\n- 참고 키워드: " + searchText.trim() : "";
     const jsonNote    = "반드시 JSON만 반환. 마크다운 코드블록 없이 순수 JSON만 출력.";
@@ -317,11 +319,13 @@ export default function App() {
         parsed.results = parsed.results.map(r => {
           const vendor = vendors.find(v => v.name === r.vendor);
               if (vendor) {
+            // 등록 거래처: 거래처 자체 검색 URL 사용
             const domain = new URL(vendor.url).hostname;
             r.url = vendor.search
               ? vendor.search.replace("{q}", encodeURIComponent(keyword))
               : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
           }
+          // 국내외 온라인 모드에서 등록 거래처 외 결과: AI가 생성한 url 그대로 사용
           return r;
         });
       }
@@ -472,7 +476,7 @@ export default function App() {
               <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>범위</span>
               <Pill active={searchRange === "vendors"} onClick={() => setSearchRange("vendors")}>거래처 내</Pill>
               <Pill active={searchRange === "online"} onClick={() => setSearchRange("online")}>
-                <IcGlobe size={12} c={searchRange === "online" ? "#fff" : MID} /> 온라인
+                <IcGlobe size={12} c={searchRange === "online" ? "#fff" : MID} /> 국내외 온라인
               </Pill>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
