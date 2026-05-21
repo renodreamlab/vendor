@@ -309,16 +309,22 @@ export default function App() {
       const raw   = data.choices?.[0]?.message?.content ?? "";
       const clean = raw.replace(/```json/g,"").replace(/```/g,"").trim();
       const parsed = JSON.parse(clean);
-      const keyword = parsed.search_keyword ?? [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
+      // 형태 분석에서 가구 유형만 추출, 색상·재질 제거
+      const rawKw  = parsed.search_keyword ?? parsed.furniture_analysis?.type ?? [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ") ?? "가구";
+      const REMOVE = /레드|블루|그린|노랑|흰|검은|빨간|플라스틱|나무|목재|철재|철제|패브릭|가죽|모던|빈티지|북유럽|미니멀|내추럴|화이트|블랙|그레이|브라운/g;
+      const keyword = rawKw.replace(REMOVE, "").replace(/\s+/g, " ").trim().split(" ")[0] || "가구";
       if (parsed.results) {
         parsed.results = parsed.results.map(r => {
           const vendor = vendors.find(v => v.name === r.vendor);
           if (vendor) {
-            // 거래처 검색 URL 사용, 없으면 구글 사이트 검색으로 폴백
             const domain = new URL(vendor.url).hostname;
-            r.url = vendor.search
-              ? vendor.search.replace("{q}", encodeURIComponent(keyword))
-              : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
+            // 이미지 검색 시: 구글 이미지 검색으로 시각적 비교 가능하게
+            // 텍스트 검색 시: 거래처 검색 URL 사용
+            r.url = isImg
+              ? `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}&tbm=isch`
+              : vendor.search
+                ? vendor.search.replace("{q}", encodeURIComponent(keyword))
+                : `https://www.google.com/search?q=${encodeURIComponent(keyword)}+site:${domain}`;
           }
           return r;
         });
@@ -346,11 +352,14 @@ export default function App() {
     return <div style={{ background: hi ? "#ecfdf5" : "#fefce8", color: hi ? "#065f46" : "#92400e", padding:"3px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700, whiteSpace:"nowrap" }}>{confidence}%</div>;
   };
 
-  const OpenBtn = ({ url }) => (
-    <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:"5px", background:DARK, color:"#fff", padding:"7px 14px", borderRadius:"6px", textDecoration:"none", fontSize:"12px", fontWeight:600 }}>
-      <IcLink size={12} c="#fff" /> 상품 페이지
-    </a>
-  );
+  const OpenBtn = ({ url }) => {
+    const isGoogleImg = url && url.includes("tbm=isch");
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:"5px", background:DARK, color:"#fff", padding:"7px 14px", borderRadius:"6px", textDecoration:"none", fontSize:"12px", fontWeight:600 }}>
+        <IcLink size={12} c="#fff" /> {isGoogleImg ? "이미지로 찾기" : "상품 페이지"}
+      </a>
+    );
+  };
 
   // Gallery card
   const GalleryCard = ({ r }) => (
