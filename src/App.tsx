@@ -188,6 +188,7 @@ export default function App() {
   const [newUrl, setNewUrl]           = useState("");
   const [error, setError]             = useState("");
   const [dropActive, setDropActive]   = useState(false);
+  const [lensToast, setLensToast]     = useState("");
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -411,6 +412,35 @@ export default function App() {
 
   const handleAiCompare = async () => {}; // 이미지 검색 시 자동 실행으로 통합됨
 
+  // ── Google Lens 연동 ──────────────────────────────────────
+  const handleGoogleLens = async () => {
+    if (!images.length) return;
+    const img = images[0];
+    try {
+      // 1. base64 → Blob
+      const byteStr = atob(img.base64);
+      const ab = new ArrayBuffer(byteStr.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([ab], { type: img.mediaType });
+
+      // 2. 클립보드에 이미지 복사
+      await navigator.clipboard.write([new ClipboardItem({ [img.mediaType]: blob })]);
+      setLensToast("✓ 이미지가 복사됐습니다 — 렌즈 페이지에서 Ctrl+V 붙여넣기");
+    } catch {
+      // 클립보드 실패 시 파일 다운로드 fallback
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(atob(img.base64), c => c.charCodeAt(0))], { type: img.mediaType })
+      );
+      const a = document.createElement("a");
+      a.href = url; a.download = "search-image.jpg"; a.click();
+      URL.revokeObjectURL(url);
+      setLensToast("⬇ 이미지를 다운로드했습니다 — 렌즈 페이지에 드래그하거나 업로드하세요");
+    }
+    window.open("https://lens.google.com/", "_blank");
+    setTimeout(() => setLensToast(""), 6000);
+  };
+
   const addVendor = () => {
     if (!newName.trim() || !newUrl.trim()) return;
     const url = newUrl.trim().startsWith("http") ? newUrl.trim() : "https://" + newUrl.trim();
@@ -515,15 +545,33 @@ export default function App() {
             <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => { addImages(Array.from(e.target.files)); e.target.value=""; }} style={{ display:"none" }} />
           </div>
           {images.length > 0 && (
-            <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginTop:"14px" }}>
-              {images.map(img => (
-                <div key={img.id} style={{ position:"relative" }}>
-                  <img src={img.preview} alt="" style={{ width:"90px", height:"90px", objectFit:"cover", borderRadius:"8px", border:"2px solid "+BDR }} />
-                  <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ position:"absolute", top:"-6px", right:"-6px", width:"20px", height:"20px", borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <IcX size={10} c="#fff" w={3} />
-                  </button>
+            <div style={{ marginTop:"14px" }}>
+              <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginBottom:"12px" }}>
+                {images.map(img => (
+                  <div key={img.id} style={{ position:"relative" }}>
+                    <img src={img.preview} alt="" style={{ width:"90px", height:"90px", objectFit:"cover", borderRadius:"8px", border:"2px solid "+BDR }} />
+                    <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ position:"absolute", top:"-6px", right:"-6px", width:"20px", height:"20px", borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <IcX size={10} c="#fff" w={3} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {/* Google Lens 버튼 */}
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
+                <button onClick={handleGoogleLens}
+                  style={{ display:"inline-flex", alignItems:"center", gap:"7px", padding:"9px 18px", background:"#4285f4", color:"#fff", border:"none", borderRadius:"8px", fontSize:"13px", fontWeight:700, cursor:"pointer" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/>
+                  </svg>
+                  Google Lens로 찾기
+                </button>
+                <span style={{ fontSize:"11px", color:MID }}>동일 제품을 전 세계에서 검색</span>
+              </div>
+              {lensToast && (
+                <div style={{ marginTop:"8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"6px", fontSize:"12px", color:"#166534", fontWeight:600 }}>
+                  {lensToast}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
