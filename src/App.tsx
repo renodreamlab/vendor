@@ -330,6 +330,25 @@ export default function App() {
         });
       }
       setResults(parsed);
+
+      // 각 결과 거래처 검색 URL에서 실제 제품 이미지 병렬 로딩
+      if (parsed.results) {
+        parsed.results.forEach((r, i) => {
+          fetch(`/api/fetch-image?url=${encodeURIComponent(r.url)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.imageUrl) {
+                setResults(prev => {
+                  if (!prev || !prev.results) return prev;
+                  const next = { ...prev, results: [...prev.results] };
+                  next.results[i] = { ...next.results[i], thumbnail: data.imageUrl };
+                  return next;
+                });
+              }
+            })
+            .catch(() => {});
+        });
+      }
     } catch(e) {
       setError("검색 중 오류가 발생했습니다: " + (e?.message ?? "다시 시도해주세요."));
     } finally {
@@ -361,8 +380,13 @@ export default function App() {
   // Gallery card
   const GalleryCard = ({ r }) => (
     <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.05)", overflow:"hidden", display:"flex", flexDirection:"column" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"block" }}>
-        <Thumb vendor={r.vendor} size={140} radius={0} />
+      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"block", height:"140px", overflow:"hidden", position:"relative" }}>
+        {r.thumbnail
+          ? <img src={r.thumbnail} alt={r.product_name} style={{ width:"100%", height:"140px", objectFit:"cover", display:"block" }} onError={e => { e.currentTarget.style.display="none"; e.currentTarget.nextSibling.style.display="flex"; }} />
+          : null}
+        <div style={{ display: r.thumbnail ? "none" : "flex", position:"absolute", inset:0 }}>
+          <Thumb vendor={r.vendor} size={140} radius={0} />
+        </div>
       </a>
       <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:"6px", flex:1 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -384,8 +408,13 @@ export default function App() {
   // List card
   const ListCard = ({ r }) => (
     <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", alignItems:"stretch", overflow:"hidden" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", padding:"14px 16px", borderRight:"1px solid "+BDR, flexShrink:0 }}>
-        <ThumbSquare vendor={r.vendor} size={72} />
+      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", width:"100px", borderRight:"1px solid "+BDR, flexShrink:0, overflow:"hidden", position:"relative" }}>
+        {r.thumbnail
+          ? <img src={r.thumbnail} alt={r.product_name} style={{ width:"100px", height:"100%", minHeight:"100px", objectFit:"cover", display:"block" }} onError={e => { e.currentTarget.style.display="none"; e.currentTarget.nextSibling.style.display="flex"; }} />
+          : null}
+        <div style={{ display: r.thumbnail ? "none" : "flex", padding:"14px 16px" }}>
+          <ThumbSquare vendor={r.vendor} size={72} />
+        </div>
       </a>
       <div style={{ padding:"14px 16px", flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:"4px" }}>
         <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
