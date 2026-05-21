@@ -11,7 +11,7 @@ const DEFAULT_VENDORS = [
   { id:7,  name:"대승컴퍼니",  url:"https://www.idaeseung.kr/",         search:"https://www.idaeseung.kr/product/search.html?keyword={q}" },
   { id:8,  name:"루센가구",    url:"https://lusen.co.kr/",              search:"https://lusen.co.kr/product/search.html?keyword={q}" },
   { id:9,  name:"모빌리가구",  url:"https://mobily.co.kr/",             search:"https://mobily.co.kr/product/search.html?keyword={q}" },
-  { id:10, name:"바오밥가구",  url:"https://www.designgagu.co.kr/",     search:"https://www.designgagu.co.kr/product/search.html?keyword={q}" },
+  { id:10, name:"바오밥가구",  url:"https://www.designgagu.co.kr/",     search:"https://www.designgagu.co.kr/product/search.html?keyword={q}", warn:true },
   { id:11, name:"벨로스가구",  url:"https://bellos.kr/",                search:"https://bellos.kr/product/search.html?keyword={q}" },
   { id:12, name:"빅퍼스",      url:"https://vicfus.com/",               search:"https://vicfus.com/product/search.html?keyword={q}" },
   { id:13, name:"상원상사",    url:"https://swgagu.co.kr/",             search:"https://swgagu.co.kr/product/search.html?keyword={q}" },
@@ -21,17 +21,17 @@ const DEFAULT_VENDORS = [
   { id:17, name:"아트랜드",    url:"https://k490515.cafe24.com/",       search:"https://k490515.cafe24.com/product/search.html?keyword={q}" },
   { id:18, name:"양지에이치앤",url:"https://yangjihn.com/",             search:"https://yangjihn.com/product/search.html?keyword={q}" },
   { id:19, name:"에프엠가구",  url:"https://fmgagu.com/",               search:"https://fmgagu.com/product/search.html?keyword={q}" },
-  { id:20, name:"우주퍼니처",  url:"https://www.woojoof.co.kr/",        search:"https://www.woojoof.co.kr/product/search.html?keyword={q}" },
+  { id:20, name:"우주퍼니처",  url:"https://www.woojoof.co.kr/",        search:"https://www.woojoof.co.kr/product/search.html?keyword={q}", warn:true },
   { id:21, name:"은창플러스",  url:"https://www.ecgagu.co.kr/",         search:"https://www.ecgagu.co.kr/product/search.html?keyword={q}" },
   { id:22, name:"이나무로",    url:"https://www.enamuro.kr/",           search:"https://www.enamuro.kr/product/search.html?keyword={q}" },
-  { id:23, name:"이앤피가구",  url:"https://enpgagu.com/",              search:"https://enpgagu.com/product/search.html?keyword={q}" },
-  { id:24, name:"인컨셉가구",  url:"https://www.inconcept.co.kr/",      search:"https://www.inconcept.co.kr/product/search.html?keyword={q}" },
-  { id:25, name:"캠버리가구",  url:"https://www.cambirry.co.kr/",       search:"https://www.cambirry.co.kr/product/search.html?keyword={q}" },
+  { id:23, name:"이앤피가구",  url:"https://enpgagu.com/",              search:"https://enpgagu.com/product/search.html?keyword={q}", warn:true },
+  { id:24, name:"인컨셉가구",  url:"https://www.inconcept.co.kr/",      search:"https://www.inconcept.co.kr/product/search.html?keyword={q}", warn:true },
+  { id:25, name:"캠버리가구",  url:"https://www.cambirry.co.kr/",       search:"https://www.cambirry.co.kr/product/search.html?keyword={q}", warn:true },
   { id:26, name:"켄덴",        url:"https://kenden.kr/",                search:"https://kenden.kr/product/search.html?keyword={q}" },
   { id:27, name:"케이브홈",    url:"https://kavehome.kr/ko",            search:"https://kavehome.kr/ko/search?q={q}" },
   { id:28, name:"파레트인",    url:"https://palletin.com/",             search:"https://palletin.com/product/search.html?keyword={q}" },
   { id:29, name:"포인플랜",    url:"https://foinplan.com/",             search:"https://foinplan.com/product/search.html?keyword={q}" },
-  { id:30, name:"하디가구",    url:"https://www.hadi.co.kr/",           search:"https://www.hadi.co.kr/product/search.html?keyword={q}" },
+  { id:30, name:"하디가구",    url:"https://www.hadi.co.kr/",           search:"https://www.hadi.co.kr/product/search.html?keyword={q}", warn:true },
   { id:31, name:"한국티에이",  url:"https://ikta.co.kr/",               search:"https://ikta.co.kr/product/search.html?keyword={q}" },
 ];
 
@@ -366,11 +366,14 @@ export default function App() {
       </a>
       <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:"6px", flex:1 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
+          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>
+            {r.vendor}{vendors.find(v=>v.name===r.vendor)?.warn && <span title="사이트 접속 오류 가능" style={{ marginLeft:"3px" }}>⚠️</span>}
+          </span>
           <Badge confidence={r.confidence} />
         </div>
         <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"13px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.4 }}>{r.product_name}</a>
         {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
+        {vendors.find(v=>v.name===r.vendor)?.warn && <p style={{ fontSize:"11px", color:"#f59e0b", margin:0 }}>⚠️ 사이트 접속 오류가 발생할 수 있습니다</p>}
         <div style={{ marginTop:"auto", paddingTop:"8px" }}>
           <OpenBtn url={r.url} />
         </div>
@@ -455,7 +458,9 @@ export default function App() {
           <div style={{ display:"flex", flexWrap:"wrap", gap:"7px" }}>
             <Pill active={selVendors.length === 0} onClick={() => setSelVendors([])}>ALL</Pill>
             {vendors.map(v => (
-              <Pill key={v.id} active={selVendors.includes(v.name)} onClick={() => toggleVendor(v.name)}>{v.name}</Pill>
+              <Pill key={v.id} active={selVendors.includes(v.name)} onClick={() => toggleVendor(v.name)}>
+                {v.name}{v.warn && <span title="사이트 접속 오류 가능" style={{ marginLeft:"3px", fontSize:"11px" }}>⚠️</span>}
+              </Pill>
             ))}
           </div>
         </div>
