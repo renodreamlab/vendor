@@ -621,13 +621,8 @@ export default function App() {
             {/* ── 이미지 검색 결과 (벡터 검색) ── */}
             {results.mode === "visual" && (
               <div>
-                {results.description && (
-                  <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"10px", padding:"12px 16px", marginBottom:"16px", fontSize:"13px", color:"#166534" }}>
-                    <b>이미지 분석:</b> {results.description}
-                  </div>
-                )}
                 <div style={{ ...labelSt, marginBottom:"12px" }}>
-                  유사 제품 {aiMatches.length}건 — 유사도 순
+                  형태 유사 제품 {aiMatches.length}건 — CLIP 이미지 유사도 순
                 </div>
                 {aiMatches.length > 0 ? (
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))", gap:"14px" }}>
@@ -642,16 +637,17 @@ export default function App() {
                           </div>
                         )}
                         <img src={m.image_url} alt={m.vendor}
-                          style={{ width:"100%", height:"160px", objectFit:"cover" }}
+                          style={{ width:"100%", height:"180px", objectFit:"cover" }}
                           onError={e => { e.currentTarget.style.display="none"; }} />
                         <div style={{ padding:"10px 12px" }}>
-                          <div style={{ fontSize:"11px", fontWeight:700, color:MID, marginBottom:"3px" }}>{m.vendor}</div>
-                          <div style={{ fontSize:"12px", color:"#475569", lineHeight:1.4, marginBottom:"6px" }}>{m.description}</div>
+                          <div style={{ fontSize:"12px", fontWeight:700, color:DARK, marginBottom:"4px" }}>{m.vendor}</div>
                           <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                            <div style={{ background: m.score>=50?"#dcfce7":"#fef9c3", color: m.score>=50?"#166534":"#92400e",
-                              padding:"2px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700 }}>
-                              유사도 {m.score}%
+                            <div style={{ background: m.score>=85?"#dcfce7": m.score>=75?"#dbeafe":"#fef9c3",
+                              color: m.score>=85?"#166534": m.score>=75?"#1e40af":"#92400e",
+                              padding:"2px 8px", borderRadius:"10px", fontSize:"12px", fontWeight:800 }}>
+                              {m.score}%
                             </div>
+                            <span style={{ fontSize:"11px", color:MID }}>형태 일치</span>
                           </div>
                         </div>
                       </a>
@@ -659,8 +655,10 @@ export default function App() {
                   </div>
                 ) : (
                   <div style={{ textAlign:"center", padding:"40px", color:MID, fontSize:"14px" }}>
-                    인덱스에 제품이 없습니다.<br/>
-                    <b>거래처 관리</b> → <b>인덱싱 실행</b>을 먼저 해주세요.
+                    {results.error
+                      ? `오류: ${results.error}`
+                      : <span>인덱스에 유사 제품이 없습니다.<br/><b>거래처 관리</b> → 인덱싱 실행 후 다시 검색하세요.</span>
+                    }
                   </div>
                 )}
               </div>
