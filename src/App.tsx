@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
+// @ts-nocheck
+import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 
 const DEFAULT_VENDORS = [
   { id:1,  name:"가구로드",    url:"https://m.gaguroad.com/",           search:"https://m.gaguroad.com/search?keyword={q}" },
@@ -10,7 +11,7 @@ const DEFAULT_VENDORS = [
   { id:7,  name:"대승컴퍼니",  url:"https://www.idaeseung.kr/",         search:"https://www.idaeseung.kr/product/search.html?keyword={q}" },
   { id:8,  name:"루센가구",    url:"https://lusen.co.kr/",              search:"https://lusen.co.kr/product/search.html?keyword={q}" },
   { id:9,  name:"모빌리가구",  url:"https://mobily.co.kr/",             search:"https://mobily.co.kr/product/search.html?keyword={q}" },
-  { id:10, name:"바오밥가구",  url:"https://www.designgagu.co.kr/",     search:"https://www.designgagu.co.kr/product/search.html?keyword={q}" },
+  { id:10, name:"바오밥가구",  url:"https://www.designgagu.co.kr/",     search:"https://www.designgagu.co.kr/product/search.html?keyword={q}", warn:true },
   { id:11, name:"벨로스가구",  url:"https://bellos.kr/",                search:"https://bellos.kr/product/search.html?keyword={q}" },
   { id:12, name:"빅퍼스",      url:"https://vicfus.com/",               search:"https://vicfus.com/product/search.html?keyword={q}" },
   { id:13, name:"상원상사",    url:"https://swgagu.co.kr/",             search:"https://swgagu.co.kr/product/search.html?keyword={q}" },
@@ -20,17 +21,17 @@ const DEFAULT_VENDORS = [
   { id:17, name:"아트랜드",    url:"https://k490515.cafe24.com/",       search:"https://k490515.cafe24.com/product/search.html?keyword={q}" },
   { id:18, name:"양지에이치앤",url:"https://yangjihn.com/",             search:"https://yangjihn.com/product/search.html?keyword={q}" },
   { id:19, name:"에프엠가구",  url:"https://fmgagu.com/",               search:"https://fmgagu.com/product/search.html?keyword={q}" },
-  { id:20, name:"우주퍼니처",  url:"https://www.woojoof.co.kr/",        search:"https://www.woojoof.co.kr/product/search.html?keyword={q}" },
+  { id:20, name:"우주퍼니처",  url:"https://www.woojoof.co.kr/",        search:"https://www.woojoof.co.kr/product/search.html?keyword={q}", warn:true },
   { id:21, name:"은창플러스",  url:"https://www.ecgagu.co.kr/",         search:"https://www.ecgagu.co.kr/product/search.html?keyword={q}" },
   { id:22, name:"이나무로",    url:"https://www.enamuro.kr/",           search:"https://www.enamuro.kr/product/search.html?keyword={q}" },
-  { id:23, name:"이앤피가구",  url:"https://enpgagu.com/",              search:"https://enpgagu.com/product/search.html?keyword={q}" },
-  { id:24, name:"인컨셉가구",  url:"https://www.inconcept.co.kr/",      search:"https://www.inconcept.co.kr/product/search.html?keyword={q}" },
-  { id:25, name:"캠버리가구",  url:"https://www.cambirry.co.kr/",       search:"https://www.cambirry.co.kr/product/search.html?keyword={q}" },
+  { id:23, name:"이앤피가구",  url:"https://enpgagu.com/",              search:"https://enpgagu.com/product/search.html?keyword={q}", warn:true },
+  { id:24, name:"인컨셉가구",  url:"https://www.inconcept.co.kr/",      search:"https://www.inconcept.co.kr/product/search.html?keyword={q}", warn:true },
+  { id:25, name:"캠버리가구",  url:"https://www.cambirry.co.kr/",       search:"https://www.cambirry.co.kr/product/search.html?keyword={q}", warn:true },
   { id:26, name:"켄덴",        url:"https://kenden.kr/",                search:"https://kenden.kr/product/search.html?keyword={q}" },
   { id:27, name:"케이브홈",    url:"https://kavehome.kr/ko",            search:"https://kavehome.kr/ko/search?q={q}" },
   { id:28, name:"파레트인",    url:"https://palletin.com/",             search:"https://palletin.com/product/search.html?keyword={q}" },
   { id:29, name:"포인플랜",    url:"https://foinplan.com/",             search:"https://foinplan.com/product/search.html?keyword={q}" },
-  { id:30, name:"하디가구",    url:"https://www.hadi.co.kr/",           search:"https://www.hadi.co.kr/product/search.html?keyword={q}" },
+  { id:30, name:"하디가구",    url:"https://www.hadi.co.kr/",           search:"https://www.hadi.co.kr/product/search.html?keyword={q}", warn:true },
   { id:31, name:"한국티에이",  url:"https://ikta.co.kr/",               search:"https://ikta.co.kr/product/search.html?keyword={q}" },
 ];
 
@@ -178,12 +179,16 @@ export default function App() {
   const [matchType, setMatchType]     = useState("exact");
   const [results, setResults]         = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [aiMatches, setAiMatches]     = useState([]);
+  const [searchStatus, setSearchStatus] = useState("");
   const [viewMode, setViewMode]       = useState("gallery"); // "gallery" | "list"
   const [showManager, setShowManager] = useState(false);
   const [newName, setNewName]         = useState("");
   const [newUrl, setNewUrl]           = useState("");
   const [error, setError]             = useState("");
   const [dropActive, setDropActive]   = useState(false);
+  const [lensToast, setLensToast]     = useState("");
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -221,30 +226,63 @@ export default function App() {
   const buildPrompt = (isImg, targetVendors, matchDesc, rangeDesc) => {
     const vendorList  = targetVendors.map(v => v.name + ": " + v.url).join("\n");
     const searchList  = targetVendors.map(v => v.name + ": " + (v.search ?? v.url)).join("\n");
-    const onlineExtra = searchRange === "online" ? "\n쿠팡, 네이버쇼핑, G마켓 등 일반 온라인도 포함." : "";
+    const onlineExtra = searchRange === "online"
+      ? "\n국내외 온라인 모두 포함. 국내: 쿠팡·네이버쇼핑·G마켓·옥션·11번가. 해외: Amazon·IKEA·Wayfair·Alibaba·1688·AliExpress 등. 거래처 목록 외 결과도 포함 가능하며 이 경우 url은 실제 상품 또는 검색 페이지 URL 사용."
+      : "";
     const catLine     = selCats.length > 0 ? "\n- 카테고리 필터: " + selCats.join(", ") : "";
-    const kwLine      = searchText.trim() ? "\n- 추가 키워드: " + searchText.trim() : "";
+    const kwLine      = searchText.trim() ? "\n- 참고 키워드: " + searchText.trim() : "";
     const jsonNote    = "반드시 JSON만 반환. 마크다운 코드블록 없이 순수 JSON만 출력.";
-    const urlRule     = "url 필드는 반드시 아래 [검색URL 목록]의 {q} 를 실제 검색어로 치환한 값을 사용할 것. 임의로 제품 상세 URL을 만들지 말 것.";
-    const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"설명"}';
-    const aSch = '{"type":"유형","style":"스타일","material":"재질","color":"색상","features":["특징"]}';
+    const urlRule     = "url 필드: 아래 [검색URL]의 {q}를 search_keyword로 치환. 임의 제품 상세 URL 생성 금지.";
+    const rSch = '{"vendor":"업체명","product_name":"예상제품명","url":"검색URL","confidence":85,"note":"형태 유사 근거"}';
+    const aSch = '{"type":"가구유형","silhouette":"전체실루엣","leg_type":"다리구조","back_type":"등받이구조","seat_type":"좌판구조","distinctive_features":["특징1","특징2"]}';
     if (isImg) {
-      return ["당신은 가구 이미지 검색 전문가입니다. 첨부된 가구 이미지를 분석하고 아래 거래처에서 해당 제품을 찾아주세요.", "",
-        "[검색 조건]", "- 유형: " + matchDesc, "- 범위: " + rangeDesc + onlineExtra, catLine, kwLine, "",
+      const multiNote = images.length > 1
+        ? `\n[중요] 첨부된 ${images.length}장의 이미지는 동일 제품의 다른 각도 사진입니다. 모든 이미지를 종합하여 제품의 형태를 정확히 파악하세요.`
+        : "";
+      return [
+        "당신은 가구 형태 분석 전문가입니다. 첨부 이미지의 가구와 외형·실루엣이 동일하거나 매우 유사한 제품을 아래 거래처에서 찾아주세요.",
+        multiNote,
+        "",
+        "[분석 우선순위 - 중요도 순]",
+        "1. 전체 실루엣과 형태 (가장 중요)",
+        "2. 다리 구조 (4발/U자/X자/캔틸레버/받침대 등)",
+        "3. 등받이 구조 (유무/높이/형태)",
+        "4. 좌판 형태 (사각/원형/곡선 등)",
+        "5. 재질·색상은 부차적 요소 (동일 형태라면 색상 달라도 포함)",
+        "",
+        "[검색 조건]",
+        "- 유형: " + matchDesc,
+        "- 범위: " + rangeDesc + onlineExtra,
+        catLine, kwLine,
+        "",
+        "[search_keyword 규칙]",
+        "- 형태/구조 중심의 짧은 한국어 단어 (2~4글자)",
+        "- 색상·재질 절대 포함 금지 (레드X, 플라스틱X, 나무X)",
+        "- 예시: '의자', '스툴', '바체어', '소파', '1인소파', '등받이의자', '암체어'",
+        "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
+        "[검색URL - {q}를 search_keyword로 치환]", searchList, "",
         urlRule, "", jsonNote, "",
-        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"키워드","results":[' + rSch + ']}', "",
-        "신뢰도 높은 순 최대 10건."
+        '응답 형식: {"furniture_analysis":' + aSch + ',"search_keyword":"의자","results":[' + rSch + ']}',
+        "",
+        "신뢰도 높은 순 최대 10건. note 필드에 형태 유사 근거 간략 기재."
       ].join("\n");
     } else {
       const q = [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
-      return ['당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.', "",
-        "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra, "",
+      return [
+        '당신은 가구 검색 전문가입니다. "' + q + '" 검색어에 맞는 가구를 아래 거래처에서 찾아주세요.',
+        "",
+        "[조건] 유형: " + matchDesc + " | 범위: " + rangeDesc + onlineExtra,
+        "",
+        "[search_keyword 규칙]",
+        "- 한국 가구 도매몰에서 실제 검색되는 짧은 단어 (2~4글자)",
+        "- 색상·재질 포함 금지. 예: '의자', '소파', '선반', '책상'",
+        "",
         "[거래처 목록]", vendorList, "",
-        "[검색URL 목록 - {q}를 검색어로 치환]", searchList, "",
+        "[검색URL - {q}를 search_keyword로 치환]", searchList, "",
         urlRule, "", jsonNote, "",
-        '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}', "",
+        '응답 형식: {"search_keyword":"' + q + '","results":[' + rSch + ']}',
+        "",
         "최대 12건."
       ].join("\n");
     }
@@ -254,44 +292,113 @@ export default function App() {
     if (!images.length && !searchText.trim() && selCats.length === 0) {
       setError("이미지를 첨부하거나 검색어 / 카테고리를 선택해주세요."); return;
     }
-    setError(""); setIsSearching(true); setResults(null);
+    setError(""); setIsSearching(true); setResults(null); setAiMatches([]); setSearchStatus("");
+
+    const targetVendors = selVendors.length === 0 ? vendors : vendors.filter(v => selVendors.includes(v.name));
+
     try {
-      const targetVendors = selVendors.length === 0 ? vendors : vendors.filter(v => selVendors.includes(v.name));
-      const matchDesc = matchType === "exact" ? "100% 동일 제품 (동일 모델)" : "유사한 디자인의 제품";
-      const rangeDesc = searchRange === "vendors" ? "등록된 거래처 목록 내에서만" : "거래처 목록 + 일반 온라인 포함";
-      const isImg = images.length > 0;
-      const prompt = buildPrompt(isImg, targetVendors, matchDesc, rangeDesc);
-      let messages;
-      if (isImg) {
-        const imgC = images.map(img => ({ type:"image_url", image_url:{ url:`data:${img.mediaType};base64,${img.base64}` } }));
-        messages = [{ role:"user", content:[...imgC, { type:"text", text:prompt }] }];
-      } else {
-        messages = [{ role:"user", content:prompt }];
-      }
-      const res  = await fetch("/api/claude", {
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ model:"gpt-4o", max_tokens:1000, messages }),
-      });
-      const data  = await res.json();
-      const raw   = data.choices?.[0]?.message?.content ?? "";
-      const clean = raw.replace(/```json/g,"").replace(/```/g,"").trim();
-      const parsed = JSON.parse(clean);
-      const keyword = parsed.search_keyword ?? [selCats.join(" "), searchText.trim()].filter(Boolean).join(" ");
-      if (parsed.results) {
-        parsed.results = parsed.results.map(r => {
-          const vendor = vendors.find(v => v.name === r.vendor);
-          if (vendor?.search) {
-            r.url = vendor.search.replace("{q}", encodeURIComponent(keyword));
-          }
-          return r;
+      // ══ 이미지 검색: Supabase 벡터 검색 ══════════════════════
+      if (images.length > 0) {
+        setSearchStatus("이미지 분석 중...");
+        const vendorNames = selVendors.length === 0 ? [] : selVendors;
+
+        const res2 = await fetch("/api/visual-search", {
+          method:"POST", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({
+            images: images.map(i => ({ base64: i.base64, mediaType: i.mediaType })),
+            matchType,
+            vendors: vendorNames,
+          }),
         });
+        const d = await res2.json();
+        if (d.error && !d.results?.length) throw new Error(d.error);
+
+        const allMatches = d.results ?? [];
+        setResults({ mode:"visual", description: d.description, allMatches });
+        setAiMatches(allMatches);
+        if (!allMatches.length) setError("인덱스에서 유사한 제품을 찾지 못했습니다. 먼저 [거래처 인덱싱]을 실행해주세요.");
+        if (!allMatches.length) setError("유사한 제품을 찾지 못했습니다. 거래처를 더 선택하거나 다시 시도해보세요.");
+
+      } else {
+        // ══ 텍스트 검색: 키워드 기반 ═════════════════════════
+        setSearchStatus("검색 중...");
+        const matchDesc = matchType === "exact" ? "100% 동일 제품 (동일 모델)" : "유사한 디자인의 제품";
+        const rangeDesc = searchRange === "vendors" ? "등록된 거래처 목록 내에서만" : "거래처 목록 + 일반 온라인 포함";
+        const prompt = buildPrompt(false, targetVendors, matchDesc, rangeDesc);
+        const res = await fetch("/api/claude", {
+          method:"POST", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ model:"gpt-4o", max_tokens:4000, messages:[{ role:"user", content:prompt }], response_format:{ type:"json_object" } }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message ?? "API error");
+        const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
+        const kw = (parsed.search_keyword ?? "").split(" ")[0] || "가구";
+        if (parsed.results) {
+          parsed.results = parsed.results.map(r => {
+            const v = vendors.find(v => v.name === r.vendor);
+            if (v) {
+              const domain = new URL(v.url).hostname;
+              r.url = v.search ? v.search.replace("{q}", encodeURIComponent(kw))
+                               : `https://www.google.com/search?q=${encodeURIComponent(kw)}+site:${domain}`;
+            }
+            return r;
+          });
+        }
+        setResults({ mode:"text", ...parsed });
+        // 텍스트 검색도 제품 스크래핑
+        if (parsed.results) {
+          parsed.results.forEach((r, i) => {
+            fetch(`/api/scrape-products?url=${encodeURIComponent(r.url)}`)
+              .then(res => res.json())
+              .then(d => {
+                if (d.products?.length) {
+                  setResults(prev => {
+                    if (!prev?.results) return prev;
+                    const next = { ...prev, results:[...prev.results] };
+                    next.results[i] = { ...next.results[i], products: d.products };
+                    return next;
+                  });
+                }
+              }).catch(() => {});
+          });
+        }
       }
-      setResults(parsed);
     } catch(e) {
-      setError("검색 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setError("검색 중 오류: " + (e?.message ?? "다시 시도해주세요."));
     } finally {
-      setIsSearching(false);
+      setIsSearching(false); setSearchStatus("");
     }
+  };
+
+  const handleAiCompare = async () => {}; // 이미지 검색 시 자동 실행으로 통합됨
+
+  // ── Google Lens 연동 ──────────────────────────────────────
+  const handleGoogleLens = async () => {
+    if (!images.length) return;
+    const img = images[0];
+    try {
+      // 1. base64 → Blob
+      const byteStr = atob(img.base64);
+      const ab = new ArrayBuffer(byteStr.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([ab], { type: img.mediaType });
+
+      // 2. 클립보드에 이미지 복사
+      await navigator.clipboard.write([new ClipboardItem({ [img.mediaType]: blob })]);
+      setLensToast("✓ 이미지가 복사됐습니다 — 렌즈 페이지에서 Ctrl+V 붙여넣기");
+    } catch {
+      // 클립보드 실패 시 파일 다운로드 fallback
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(atob(img.base64), c => c.charCodeAt(0))], { type: img.mediaType })
+      );
+      const a = document.createElement("a");
+      a.href = url; a.download = "search-image.jpg"; a.click();
+      URL.revokeObjectURL(url);
+      setLensToast("⬇ 이미지를 다운로드했습니다 — 렌즈 페이지에 드래그하거나 업로드하세요");
+    }
+    window.open("https://lens.google.com/", "_blank");
+    setTimeout(() => setLensToast(""), 6000);
   };
 
   const addVendor = () => {
@@ -304,6 +411,23 @@ export default function App() {
   const inSt = { width:"100%", padding:"10px 14px", border:"1px solid "+BDR, borderRadius:"8px", fontSize:"14px", outline:"none", boxSizing:"border-box" };
 
   // ── Result renderers ──────────────────────────────────────
+  // ── 인덱싱 섹션 컴포넌트 ─────────────────────────────────
+  const IndexSection = () => (
+    <div style={{ padding:"14px 24px", borderBottom:"1px solid #f1f5f9", background:"#fafafa" }}>
+      <div style={{ ...labelSt, marginBottom:"8px" }}>제품 인덱싱 (이미지 검색용 DB 구축)</div>
+      <div style={{ fontSize:"12px", color:MID, marginBottom:"10px", lineHeight:1.6 }}>
+        거래처 전체 제품을 크롤링해서 Supabase에 저장합니다.<br/>
+        처음 1회 또는 거래처 업데이트 시 실행하세요. (소요 30~60분)
+      </div>
+      <div style={{ background:"#1e293b", borderRadius:"8px", padding:"12px 14px", fontFamily:"monospace", fontSize:"12px", color:"#94a3b8" }}>
+        <div style={{ color:"#64748b", marginBottom:"4px" }}># 터미널에서 실행</div>
+        <div style={{ color:"#e2e8f0" }}>node scripts/index.mjs</div>
+        <div style={{ color:"#64748b", marginTop:"6px", marginBottom:"4px" }}># 특정 거래처만</div>
+        <div style={{ color:"#e2e8f0" }}>node scripts/index.mjs 켄덴 벨로스가구</div>
+      </div>
+    </div>
+  );
+
   const Badge = ({ confidence }) => {
     const hi = confidence >= 80;
     return <div style={{ background: hi ? "#ecfdf5" : "#fefce8", color: hi ? "#065f46" : "#92400e", padding:"3px 8px", borderRadius:"10px", fontSize:"11px", fontWeight:700, whiteSpace:"nowrap" }}>{confidence}%</div>;
@@ -315,45 +439,53 @@ export default function App() {
     </a>
   );
 
-  // Gallery card
-  const GalleryCard = ({ r }) => (
-    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.05)", overflow:"hidden", display:"flex", flexDirection:"column" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"block" }}>
-        <Thumb vendor={r.vendor} size={140} radius={0} />
-      </a>
-      <div style={{ padding:"12px 14px 14px", display:"flex", flexDirection:"column", gap:"6px", flex:1 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
-          <Badge confidence={r.confidence} />
+  // 거래처 카드 — 제품 여러 개 그리드
+  const VendorCard = ({ r }) => {
+    const warn = vendors.find(v => v.name === r.vendor)?.warn;
+    const prods = r.products ?? (r.thumbnail ? [{ imageUrl: r.thumbnail, productUrl: r.url, name: r.product_name }] : []);
+    return (
+      <div style={{ background:"#fff", borderRadius:"12px", border:"1px solid #e8eaed", boxShadow:"0 1px 4px rgba(0,0,0,0.06)", overflow:"hidden" }}>
+        {/* 헤더 */}
+        <div style={{ padding:"10px 14px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ fontSize:"13px", fontWeight:800, color:DARK }}>
+            {r.vendor}{warn && <span title="접속 오류 가능" style={{ marginLeft:"4px" }}>⚠️</span>}
+          </span>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <Badge confidence={r.confidence} />
+            <OpenBtn url={r.url} />
+          </div>
         </div>
-        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"13px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.4 }}>{r.product_name}</a>
-        {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
-        <div style={{ marginTop:"auto", paddingTop:"8px" }}>
-          <OpenBtn url={r.url} />
-        </div>
+        {/* 제품 이미지 그리드 */}
+        {prods.length > 0 ? (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(100px, 1fr))", gap:"2px", padding:"2px", background:"#f8fafc" }}>
+            {prods.map((p, i) => (
+              <a key={i} href={p.productUrl || r.url} target="_blank" rel="noopener noreferrer"
+                style={{ display:"block", aspectRatio:"1", overflow:"hidden", background:"#f1f5f9" }}>
+                <img src={p.imageUrl} alt={p.name || r.vendor}
+                  style={{ width:"100%", height:"100%", objectFit:"cover", transition:"transform 0.15s" }}
+                  onMouseOver={e => e.currentTarget.style.transform="scale(1.05)"}
+                  onMouseOut={e => e.currentTarget.style.transform="scale(1)"}
+                  onError={e => { e.currentTarget.style.display="none"; }} />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={{ height:"120px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Thumb vendor={r.vendor} size={120} radius={0} />
+          </div>
+        )}
+        {r.note && <p style={{ fontSize:"11px", color:"#94a3b8", margin:0, padding:"8px 14px", lineHeight:1.4 }}>{r.note}</p>}
+        {warn && <p style={{ fontSize:"11px", color:"#f59e0b", margin:0, padding:"0 14px 8px" }}>⚠️ 사이트 접속 오류가 발생할 수 있습니다</p>}
       </div>
-    </div>
-  );
+    );
+  };
+
+  // Gallery card (하위 호환)
+  const GalleryCard = ({ r }) => <VendorCard r={r} />;
 
   // List card
   const ListCard = ({ r }) => (
-    <div style={{ background:"#fff", borderRadius:"10px", border:"1px solid #e8eaed", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", alignItems:"stretch", overflow:"hidden" }}>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration:"none", display:"flex", alignItems:"center", justifyContent:"center", padding:"14px 16px", borderRight:"1px solid "+BDR, flexShrink:0 }}>
-        <ThumbSquare vendor={r.vendor} size={72} />
-      </a>
-      <div style={{ padding:"14px 16px", flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:"4px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-          <span style={{ fontSize:"11px", fontWeight:700, color:MID }}>{r.vendor}</span>
-          <Badge confidence={r.confidence} />
-        </div>
-        <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize:"14px", fontWeight:700, color:"#1e293b", textDecoration:"none", lineHeight:1.3 }}>{r.product_name}</a>
-        {r.note && <p style={{ fontSize:"12px", color:"#94a3b8", margin:0, lineHeight:1.4 }}>{r.note}</p>}
-        <div style={{ display:"flex", alignItems:"center", gap:"10px", marginTop:"6px", flexWrap:"wrap" }}>
-          <span style={{ fontSize:"11px", color:"#94a3b8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"260px" }}>{r.url}</span>
-          <OpenBtn url={r.url} />
-        </div>
-      </div>
-    </div>
+    <VendorCard r={r} />
   );
 
   return (
@@ -390,15 +522,33 @@ export default function App() {
             <input ref={fileRef} type="file" accept="image/*" multiple onChange={e => { addImages(Array.from(e.target.files)); e.target.value=""; }} style={{ display:"none" }} />
           </div>
           {images.length > 0 && (
-            <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginTop:"14px" }}>
-              {images.map(img => (
-                <div key={img.id} style={{ position:"relative" }}>
-                  <img src={img.preview} alt="" style={{ width:"90px", height:"90px", objectFit:"cover", borderRadius:"8px", border:"2px solid "+BDR }} />
-                  <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ position:"absolute", top:"-6px", right:"-6px", width:"20px", height:"20px", borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <IcX size={10} c="#fff" w={3} />
-                  </button>
+            <div style={{ marginTop:"14px" }}>
+              <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginBottom:"12px" }}>
+                {images.map(img => (
+                  <div key={img.id} style={{ position:"relative" }}>
+                    <img src={img.preview} alt="" style={{ width:"90px", height:"90px", objectFit:"cover", borderRadius:"8px", border:"2px solid "+BDR }} />
+                    <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ position:"absolute", top:"-6px", right:"-6px", width:"20px", height:"20px", borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <IcX size={10} c="#fff" w={3} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {/* Google Lens 버튼 */}
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
+                <button onClick={handleGoogleLens}
+                  style={{ display:"inline-flex", alignItems:"center", gap:"7px", padding:"9px 18px", background:"#4285f4", color:"#fff", border:"none", borderRadius:"8px", fontSize:"13px", fontWeight:700, cursor:"pointer" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/>
+                  </svg>
+                  Google Lens로 찾기
+                </button>
+                <span style={{ fontSize:"11px", color:MID }}>동일 제품을 전 세계에서 검색</span>
+              </div>
+              {lensToast && (
+                <div style={{ marginTop:"8px", padding:"8px 12px", background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"6px", fontSize:"12px", color:"#166534", fontWeight:600 }}>
+                  {lensToast}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -412,7 +562,9 @@ export default function App() {
           <div style={{ display:"flex", flexWrap:"wrap", gap:"7px" }}>
             <Pill active={selVendors.length === 0} onClick={() => setSelVendors([])}>ALL</Pill>
             {vendors.map(v => (
-              <Pill key={v.id} active={selVendors.includes(v.name)} onClick={() => toggleVendor(v.name)}>{v.name}</Pill>
+              <Pill key={v.id} active={selVendors.includes(v.name)} onClick={() => toggleVendor(v.name)}>
+                {v.name}{v.warn && <span title="사이트 접속 오류 가능" style={{ marginLeft:"3px", fontSize:"11px" }}>⚠️</span>}
+              </Pill>
             ))}
           </div>
         </div>
@@ -433,13 +585,13 @@ export default function App() {
               <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>범위</span>
               <Pill active={searchRange === "vendors"} onClick={() => setSearchRange("vendors")}>거래처 내</Pill>
               <Pill active={searchRange === "online"} onClick={() => setSearchRange("online")}>
-                <IcGlobe size={12} c={searchRange === "online" ? "#fff" : MID} /> 온라인
+                <IcGlobe size={12} c={searchRange === "online" ? "#fff" : MID} /> 국내외 온라인
               </Pill>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
               <span style={{ fontSize:"11px", color:MID, whiteSpace:"nowrap" }}>유형</span>
-              <Pill active={matchType === "exact"}   onClick={() => setMatchType("exact")}>일치</Pill>
-              <Pill active={matchType === "similar"} onClick={() => setMatchType("similar")}>비슷</Pill>
+              <Pill active={matchType === "exact"}   onClick={() => setMatchType("exact")}>일치 <span style={{ opacity:0.7, fontSize:"10px" }}>100%</span></Pill>
+              <Pill active={matchType === "similar"} onClick={() => setMatchType("similar")}>비슷 <span style={{ opacity:0.7, fontSize:"10px" }}>70%↑</span></Pill>
             </div>
             <button onClick={handleSearch} disabled={isSearching} style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:"8px", padding:"10px 28px", background: isSearching ? MID : DARK, color:"#fff", border:"none", borderRadius:"8px", fontSize:"14px", fontWeight:700, cursor: isSearching ? "not-allowed" : "pointer" }}>
               <IcSearch size={15} c="#fff" /> {isSearching ? "검색 중..." : "검색"}
@@ -456,57 +608,75 @@ export default function App() {
             <div style={{ display:"flex", justifyContent:"center", marginBottom:"16px" }}>
               <IcSearch size={36} c="#cbd5e1" />
             </div>
-            <div style={{ fontSize:"15px", fontWeight:700, color:"#1e293b", marginBottom:"4px" }}>AI가 거래처 사이트를 검색하고 있습니다</div>
-            <div style={{ fontSize:"13px", color:MID }}>{images.length > 1 ? images.length + "개 이미지 동시 분석 중" : "잠시만 기다려주세요"}</div>
+            <div style={{ fontSize:"15px", fontWeight:700, color:"#1e293b", marginBottom:"4px" }}>
+              {images.length > 0 ? "이미지 유사도 기반으로 검색 중입니다" : "AI가 거래처를 검색하고 있습니다"}
+            </div>
+            <div style={{ fontSize:"13px", color:MID }}>{searchStatus || "잠시만 기다려주세요"}</div>
           </div>
         )}
 
         {/* RESULTS */}
         {results && !isSearching && (
           <div>
-            {/* analysis banner */}
-            {results.furniture_analysis && (
-              <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"10px", padding:"14px 18px", marginBottom:"16px" }}>
-                <div style={{ ...labelSt, color:"#166534", marginBottom:"8px" }}>이미지 분석 결과</div>
-                <div style={{ display:"flex", gap:"18px", flexWrap:"wrap", fontSize:"13px", color:"#166534" }}>
-                  {results.furniture_analysis.type     && <span><b>유형:</b> {results.furniture_analysis.type}</span>}
-                  {results.furniture_analysis.style    && <span><b>스타일:</b> {results.furniture_analysis.style}</span>}
-                  {results.furniture_analysis.material && <span><b>재질:</b> {results.furniture_analysis.material}</span>}
-                  {results.furniture_analysis.color    && <span><b>색상:</b> {results.furniture_analysis.color}</span>}
+            {/* ── 이미지 검색 결과 (벡터 검색) ── */}
+            {results.mode === "visual" && (
+              <div>
+                <div style={{ ...labelSt, marginBottom:"12px" }}>
+                  형태 유사 제품 {aiMatches.length}건 — CLIP 이미지 유사도 순
                 </div>
-                {results.furniture_analysis.features && results.furniture_analysis.features.length > 0 && (
-                  <div style={{ fontSize:"12px", color:"#166534", marginTop:"6px" }}><b>특징:</b> {results.furniture_analysis.features.join(" · ")}</div>
+                {aiMatches.length > 0 ? (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))", gap:"14px" }}>
+                    {aiMatches.map((m, i) => (
+                      <a key={i} href={m.product_url} target="_blank" rel="noopener noreferrer"
+                        style={{ textDecoration:"none", background:"#fff", borderRadius:"10px", overflow:"hidden",
+                          border: i===0 ? "2px solid "+DARK : "1px solid #e8eaed",
+                          boxShadow:"0 1px 4px rgba(0,0,0,0.06)", display:"flex", flexDirection:"column" }}>
+                        {i === 0 && (
+                          <div style={{ background:DARK, color:"#fff", fontSize:"10px", fontWeight:700, textAlign:"center", padding:"3px" }}>
+                            최고 유사
+                          </div>
+                        )}
+                        <img src={m.image_url} alt={m.vendor}
+                          style={{ width:"100%", height:"180px", objectFit:"cover" }}
+                          onError={e => { e.currentTarget.style.display="none"; }} />
+                        <div style={{ padding:"10px 12px" }}>
+                          <div style={{ fontSize:"12px", fontWeight:700, color:DARK, marginBottom:"3px" }}>{m.vendor}</div>
+                          {m.description && (
+                            <div style={{ fontSize:"10px", color:"#64748b", marginBottom:"4px", lineHeight:1.3, wordBreak:"break-all" }}>
+                              {m.description.slice(0,60)}
+                            </div>
+                          )}
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                            <div style={{ background: m.score>=70?"#dcfce7": m.score>=60?"#dbeafe":"#fef9c3",
+                              color: m.score>=70?"#166534": m.score>=60?"#1e40af":"#92400e",
+                              padding:"2px 8px", borderRadius:"10px", fontSize:"12px", fontWeight:800 }}>
+                              {m.score}%
+                            </div>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign:"center", padding:"40px", color:MID, fontSize:"14px" }}>
+                    {results.error
+                      ? `오류: ${results.error}`
+                      : <span>인덱스에 유사 제품이 없습니다.<br/><b>거래처 관리</b> → 인덱싱 실행 후 다시 검색하세요.</span>
+                    }
+                  </div>
                 )}
-                {results.search_keyword && <div style={{ fontSize:"12px", color:"#166534", marginTop:"4px" }}><b>검색 키워드:</b> {results.search_keyword}</div>}
               </div>
             )}
 
-            {/* result header with view toggle */}
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
-              <div style={{ fontSize:"13px", fontWeight:700, color:"#374151" }}>
-                검색 결과 <span style={{ color:DARK }}>{results.results ? results.results.length : 0}건</span>
-              </div>
-              <div style={{ display:"flex", background:"#f1f5f9", borderRadius:"8px", padding:"3px", gap:"2px" }}>
-                <button onClick={() => setViewMode("gallery")} title="갤러리 보기" style={{ width:"32px", height:"32px", borderRadius:"6px", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", background: viewMode === "gallery" ? "#fff" : "transparent", boxShadow: viewMode === "gallery" ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition:"all 0.15s" }}>
-                  <IcGrid size={15} c={viewMode === "gallery" ? DARK : MID} />
-                </button>
-                <button onClick={() => setViewMode("list")} title="리스트 보기" style={{ width:"32px", height:"32px", borderRadius:"6px", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", background: viewMode === "list" ? "#fff" : "transparent", boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition:"all 0.15s" }}>
-                  <IcList size={15} c={viewMode === "list" ? DARK : MID} />
-                </button>
-              </div>
-            </div>
-
-            {/* gallery view */}
-            {viewMode === "gallery" && (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:"14px" }}>
-                {results.results && results.results.map((r, i) => <GalleryCard key={i} r={r} />)}
-              </div>
-            )}
-
-            {/* list view */}
-            {viewMode === "list" && (
-              <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
-                {results.results && results.results.map((r, i) => <ListCard key={i} r={r} />)}
+            {/* ── 텍스트 검색 결과 ── */}
+            {results.mode === "text" && (
+              <div>
+                <div style={{ fontSize:"13px", fontWeight:700, color:"#374151", marginBottom:"14px" }}>
+                  검색 결과 <span style={{ color:DARK }}>{results.results ? results.results.length : 0}건</span>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:"14px" }}>
+                  {results.results && results.results.map((r, i) => <GalleryCard key={i} r={r} />)}
+                </div>
               </div>
             )}
           </div>
@@ -523,6 +693,8 @@ export default function App() {
                 <IcX size={20} c={MID} />
               </button>
             </div>
+            {/* 인덱싱 섹션 */}
+            <IndexSection />
             <div style={{ padding:"16px 24px", borderBottom:"1px solid #f1f5f9" }}>
               <div style={{ ...labelSt, marginBottom:"8px" }}>거래처 추가</div>
               <div style={{ display:"flex", gap:"8px" }}>
